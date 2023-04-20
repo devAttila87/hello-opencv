@@ -1,11 +1,15 @@
 package de.leidenheit;
 
 import java.io.File;
+import java.io.Serializable;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class ResourceProvider {
     
@@ -75,6 +79,19 @@ public class ResourceProvider {
             LOGGER.warning("error: " + ex.getMessage());
         }
         */
+    }
+
+    public void writeResource(Object object, String resourceDirectory, String resourceFileName) {
+        final var objMapper = new ObjectMapper();
+        try {
+            var targetFile = new File("src/resources/" + resourceDirectory);
+            targetFile.mkdirs();
+            targetFile = new File(targetFile.getPath() + "/" + resourceFileName);
+            objMapper.writeValue(targetFile, object);
+            LOGGER.info("Successfully serialized into " + targetFile.getAbsolutePath());   
+        } catch (Exception e) {
+            LOGGER.warning("throws " + e.getMessage());
+        }
     }
 
 }

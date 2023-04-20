@@ -33,7 +33,7 @@ public final class CameraCalibrator {
     private Mat mCameraMatrix = new Mat();
     private Mat mDistortionCoefficients = new Mat();
     private int mFlags;
-    private double mRms;
+    private double mAvgReprojectionErrors;
     private double mSquareSize = 30; // mm
     private Size mImageSize;
 
@@ -73,14 +73,14 @@ public final class CameraCalibrator {
         this.mIsCalibrated = Core.checkRange(this.mCameraMatrix) 
             && Core.checkRange(this.mDistortionCoefficients);
 
-        this.mRms = computeReprojectionErrors(objectPoints, rvecs, tvecs, reprojectionErrors);
+        this.mAvgReprojectionErrors = computeReprojectionErrors(objectPoints, rvecs, tvecs, reprojectionErrors);
 
         LOGGER.info("CalibrationSuccessful=" + this.mIsCalibrated
             + "\n\nobjectPoints=" + objectPoints
             + "\n\nrvecs=" + rvecs
             + "\n\ntvecs=" + tvecs
             + "\ndistortionCoefficients=" + this.mDistortionCoefficients
-            + "\n\nrms=" + this.mRms
+            + "\n\navgReprojectionErrors=" + this.mAvgReprojectionErrors
         );
     }
 
@@ -206,10 +206,11 @@ public final class CameraCalibrator {
         return this.mCornersFound;
     }
 
-    public void addCorners() {
+    private void addCorners() {
         if (this.mCornersFound) {
             this.mCornersBuffer.add(this.mCorners.clone());
         }
+        
     }
 
     /*
@@ -265,7 +266,7 @@ public final class CameraCalibrator {
     }
 
     public double getAvgReprojectionError() {
-        return this.mRms;
+        return this.mAvgReprojectionErrors;
     }
 
     public boolean isCalibrated() {

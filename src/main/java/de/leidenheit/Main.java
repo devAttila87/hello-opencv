@@ -120,10 +120,11 @@ public class Main {
 
                 // for each image do find chessboard corners
                 for (String imagePath: imagePaths) {
-                    final var img = new File(imagePath);                       
-
+                    final var img = new File(imagePath);                
+                           
                     // find corners and store the result in the calibrator instance
-                    final var hasCorners = cameraCalibrator.findCorners(img.getAbsolutePath(), 
+                    final var hasCorners = cameraCalibrator.findCorners(
+                        img.getAbsolutePath(), 
                         (originalFrame, cornersFrame) -> {                                
                             LOGGER.info("Successfully found conrners: A=" + originalFrame.hashCode() + "; B=" + cornersFrame.hashCode());
 
@@ -148,17 +149,36 @@ public class Main {
                     }
 
                     // debug 
-                    System.out.println("Press any key to continue.....");
-                    scanner.nextLine(); 
+                    // System.out.println("Press any key to continue.....");
+                    // scanner.nextLine(); 
                 }
                 LOGGER.info("corners buffer size: " + cameraCalibrator.getCornersBufferSize());
                 // debug 
                 // LOGGER.info("corners buffer: \n" + cameraCalibrator.getCornersBuffer());
             
-            
-                
                 // calibrate with the infos
                 cameraCalibrator.calibrate();
+
+
+                // dump values (currently for debugging only)
+                resProvider.writeResource(
+                    cameraCalibrator.getCornersBuffer(), 
+                    "dump", 
+                    "corners_buffer.dump");
+                resProvider.writeResource(
+                    cameraCalibrator.getCameraMatrix(), 
+                    "dump", 
+                    "camera_matrix.dump");
+                resProvider.writeResource(
+                    cameraCalibrator.getDistortionCoefficients(), 
+                    "dump", 
+                    "distortion_coefficients.dump");
+                resProvider.writeResource(
+                    cameraCalibrator.getAvgReprojectionError(), 
+                    "dump", 
+                    "avg_reprojection_errors.dump");
+
+                
 
             }
 

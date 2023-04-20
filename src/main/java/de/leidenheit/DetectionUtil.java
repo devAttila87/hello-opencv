@@ -83,7 +83,7 @@ public final class DetectionUtil {
     // todo just a check
     private static void alternateTryCalibrate(Mat grayFrame, Mat rbgaFrame) {
        // camCalibrator.processFrame(grayFrame, rbgaFrame);
-        camCalibrator.addCorners();
+        //camCalibrator.addCorners();
         /* TODO
         if (camCalibrator.getCornersBufferSize() > 0)
             camCalibrator.calibrate();
