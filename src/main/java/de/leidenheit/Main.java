@@ -58,11 +58,12 @@ public class Main {
         cameraFeed.setBorder(BorderFactory.createLineBorder(Color.GRAY));
         final JPanel processedFeed = new JPanel();
         processedFeed.setBorder(BorderFactory.createLineBorder(Color.RED));
+        /*
         final JFrame window = new JFrame("Hello OpenCV");
-        window.setSize(new Dimension(1200, 600));
+        window.setSize(new Dimension(1600, 540));
         window.setLocationRelativeTo(null);
         window.setResizable(false);
-        window.setLayout(new GridLayout(1, 2));
+        window.setLayout(new GridLayout(1, 1));
         window.add(cameraFeed);
         window.add(processedFeed);
         window.setVisible(true);
@@ -85,14 +86,14 @@ public class Main {
                 LOGGER.info("\t\tkeyReleased -> " + e.getKeyCode() + "[" + e.getKeyChar() + "]");
             }
         });
-
+        */
 
 
         // create video capture object (index 0 is default camera)
         final VideoCapture camera = new VideoCapture(1, CAP_DSHOW);
         camera.set(CAP_PROP_FPS, 30);
-        camera.set(CAP_PROP_FRAME_WIDTH, 640);
-        camera.set(CAP_PROP_FRAME_HEIGHT, 480);
+        camera.set(CAP_PROP_FRAME_WIDTH, 1920);
+        camera.set(CAP_PROP_FRAME_HEIGHT, 1080);
 
         // start computer vision
         Main.startComputerVision(cameraFeed, processedFeed, camera).run();
@@ -105,8 +106,9 @@ public class Main {
             // debug
             Scanner scanner = new Scanner(System.in);
 
+            /* not working */
             // instantiate a camera calibrator
-            final var cameraCalibrator = new CameraCalibrator(640, 480);
+            final var cameraCalibrator = new CameraCalibrator(1920, 1080);
 
             final var reuseCalibrationImages = true;
             if (!reuseCalibrationImages) {
@@ -116,35 +118,35 @@ public class Main {
                 // read all files from /resource/chessboard into an array
                 final var resProvider = new ResourceProvider();
                 final var imagePaths = resProvider
-                    .findFilePathsFromResourcePath("chessboard/same_size");
+                    .findFilePathsFromResourcePath("chessboard/1080p");
 
                 // for each image do find chessboard corners
+                LOGGER.info("Searching for corners in " + imagePaths + "...");
                 for (String imagePath: imagePaths) {
                     final var img = new File(imagePath);                
                            
                     // find corners and store the result in the calibrator instance
                     final var hasCorners = cameraCalibrator.findCorners(
                         img.getAbsolutePath(), 
-                        (originalFrame, cornersFrame) -> {                                
-                            LOGGER.info("Successfully found conrners: A=" + originalFrame.hashCode() + "; B=" + cornersFrame.hashCode());
-
+                        (originalFrame, cornersFrame) -> {
                             // clear and repaint Jpanels
                             cameraFeed.removeAll();
                             processedFeed.removeAll();
                             cameraFeed.repaint();
                             processedFeed.repaint();
                             try {
-                                Thread.sleep(250);
+                                // Thread.sleep(500);
                             } catch (Exception e) {
                                 // TODO: handle exception
                             }
 
                             // draw the images to the panels
-                            DetectionUtil.drawImage(originalFrame, cameraFeed);
-                            DetectionUtil.drawImage(cornersFrame, processedFeed);
-                        });
+                            // DetectionUtil.drawImage(originalFrame, cameraFeed);
+                            // DetectionUtil.drawImage(cornersFrame, processedFeed);
+                        });                        
                     if (!hasCorners) {
                         LOGGER.warning("could not determine corners in image " + img.getAbsolutePath());
+                        scanner.nextLine(); 
                         continue;
                     }
 
@@ -152,67 +154,56 @@ public class Main {
                     // System.out.println("Press any key to continue.....");
                     // scanner.nextLine(); 
                 }
-                LOGGER.info("corners buffer size: " + cameraCalibrator.getCornersBufferSize());
-                // debug 
-                // LOGGER.info("corners buffer: \n" + cameraCalibrator.getCornersBuffer());
             
                 // calibrate with the infos
-                cameraCalibrator.calibrate();
-
-
-                // dump values (currently for debugging only)
-                resProvider.writeResource(
-                    cameraCalibrator.getCornersBuffer(), 
-                    "dump", 
-                    "corners_buffer.dump");
-                resProvider.writeResource(
-                    cameraCalibrator.getCameraMatrix(), 
-                    "dump", 
-                    "camera_matrix.dump");
-                resProvider.writeResource(
-                    cameraCalibrator.getDistortionCoefficients(), 
-                    "dump", 
-                    "distortion_coefficients.dump");
-                resProvider.writeResource(
-                    cameraCalibrator.getAvgReprojectionError(), 
-                    "dump", 
-                    "avg_reprojection_errors.dump");
-
-                
-
+                final var calibrationResult = cameraCalibrator.calibrate(); 
             }
-
-
-
-            while (true) {
-                break;
-                
-                /*
-                // read frame from camera
-                final var grabbed = camera.read(frame);
-                DetectionUtil.drawImage(frame, cameraFeed);
-                if (!grabbed) {
-                    LOGGER.warning("no frame grabbed from camera");
-                }
+             // */
 
 
 
 
-
-                // TODO test calibration
-                if (!calibrated) {
+            /*
+            final var cameraCalibrator = new CameraCalibrator2();
+            final var reuseCalibrationImages = true;
+            if (!reuseCalibrationImages) {
+                // TODO implement webcam
+                throw new RuntimeException("Not yet implemented");
+            } else {
+                // read all files from /resource/chessboard into an array
+                // final var resProvider = new ResourceProvider();
+                // final var imagePaths = resProvider
+                //    .findFilePathsFromResourcePath("chessboard/1080p");
+                    // .findFilePathsFromResourcePath("chessboard");
+                // for each image do find chessboard corners
+                // for (String imagePath: imagePaths) {
+                //     final var img = new File(imagePath);
+                    final var imagePath = "src/resources/chessboard/1080p/*.jpg";
+                    // final var imagePath = "src/resources/chessboard/same_size/*.jpg";
+                    // final var imagePath = "src/resources/chessboard/*.jpg";
                     try {
-                        Thread.sleep(50);
-                        final var frameToCalibrate = frame.clone();
-                        calibrated = DetectionUtil.calibrateCamera(frameToCalibrate);
-                        // draw the processed calibration image
-                        DetectionUtil.drawImage(frameToCalibrate, processedFeed);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                        cameraCalibrator.getPoints(
+                            imagePath, 
+                            "src/resources/points", 
+                            new Size(9, 6));
+
+                        final var calibrateArr = cameraCalibrator.loadCalibrate(
+                            String.format("%scamera-matrix.bin", "src/resources/points"),
+                            String.format("%sdist-coefs.bin", "src/resources/points"));
+                        cameraCalibrator.undistortAll(
+                            imagePath, 
+                            "src/resources/_dbg_distorted_", 
+                            calibrateArr[0],
+                            calibrateArr[1]);
+                    } catch (Exception e) {
+                        //
+                        LOGGER.warning(e.getMessage());
+                    }                
                 }
                 */
-            }
+            // }
+            
+            LOGGER.info("done");
         };
     }
 }

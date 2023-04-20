@@ -8,12 +8,15 @@ import org.opencv.core.MatOfDouble;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
 import org.opencv.core.Point;
+import org.opencv.core.Point3;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.core.TermCriteria;
+import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -26,27 +29,38 @@ public final class CameraCalibrator {
     private final Size mPatternSize = new Size(9, 6);
     private final int mCornersSize = (int) (this.mPatternSize.width * this.mPatternSize.height);
     private boolean mCornersFound = false;
-    private MatOfPoint2f mCorners = new MatOfPoint2f();
-    private List<Mat> mCornersBuffer = new ArrayList<Mat>();
+    // private MatOfPoint2f mCorners = new MatOfPoint2f();
+    // private List<Mat> mCornersBuffer = new ArrayList<Mat>();
     private boolean mIsCalibrated = false;
+    private List<Mat> mObjectPoints = new ArrayList<Mat>();
+    private List<Mat> mImagePoints = new ArrayList<Mat>();
+		
 
-    private Mat mCameraMatrix = new Mat();
-    private Mat mDistortionCoefficients = new Mat();
+    
+    // private Mat mCameraMatrix = new Mat();
+    // private Mat mDistortionCoefficients = new Mat();
+    private Mat mCameraMatrix = Mat.eye(3, 3, CvType.CV_64FC1);
+    private Mat mDistortionCoefficients = Mat.zeros(5, 1, CvType.CV_64FC1);
     private int mFlags;
     private double mAvgReprojectionErrors;
     private double mSquareSize = 30; // mm
     private Size mImageSize;
 
-    private double mScaleFactor = 0.2; // used to resize images 
+    private double mScaleFactor = 0.5d; // used to resize images 
 
     public CameraCalibrator(int width, int height) {
         this.mImageSize = new Size(width, height);
-        this.mFlags = Calib3d.CALIB_FIX_PRINCIPAL_POINT + Calib3d.CALIB_ZERO_TANGENT_DIST
-                + Calib3d.CALIB_FIX_ASPECT_RATIO + Calib3d.CALIB_FIX_K4 + Calib3d.CALIB_FIX_K5;
-        Mat.eye(3, 3, CvType.CV_64FC1).copyTo(this.mCameraMatrix);
-        this.mCameraMatrix.put(0, 0, 1.0);
-        Mat.zeros(5, 1, CvType.CV_64FC1).copyTo(this.mDistortionCoefficients);
-        LOGGER.info("Instantiated new " + this.getClass());
+        this.mFlags = 0
+            + Calib3d.CALIB_FIX_PRINCIPAL_POINT // marginal
+            + Calib3d.CALIB_ZERO_TANGENT_DIST // marginal
+            // + Calib3d.CALIB_FIX_ASPECT_RATIO increases by 1.x
+            + Calib3d.CALIB_FIX_K4 // marginal
+            + Calib3d.CALIB_FIX_K5; // marginal
+            ;
+        // Mat.eye(3, 3, CvType.CV_64FC1).copyTo(this.mCameraMatrix);
+        // this.mCameraMatrix.put(0, 0, 1.0);
+        // Mat.zeros(5, 1, CvType.CV_64FC1).copyTo(this.mDistortionCoefficients);
+        // LOGGER.info("Instantiated new " + this.getClass());
     }
 
     /*
@@ -56,52 +70,96 @@ public final class CameraCalibrator {
     }
      */
 
-    public void calibrate() {
+    public CalibrationData calibrate() {
+
         ArrayList<Mat> rvecs = new ArrayList<Mat>();
         ArrayList<Mat> tvecs = new ArrayList<Mat>();
         Mat reprojectionErrors = new Mat();
-        ArrayList<Mat> objectPoints = new ArrayList<Mat>();
-        objectPoints.add(Mat.zeros(this.mCornersSize, 1, CvType.CV_32FC3));
-        calcBoardCornerPositions(objectPoints.get(0));
-        for (int i = 1; i < this.mCornersBuffer.size(); i++) {
-            objectPoints.add(objectPoints.get(0));
-        }
 
-        Calib3d.calibrateCamera(objectPoints, this.mCornersBuffer, this.mImageSize, this.mCameraMatrix,
-                this.mDistortionCoefficients, rvecs, tvecs, this.mFlags);
+        LOGGER.info("\nobjectPoints= " + this.mObjectPoints.size() 
+            + "\nimagePoints=" + this.mImagePoints.size());
+        
+        Calib3d.calibrateCamera(
+            this.mObjectPoints,
+            this.mImagePoints, 
+            this.mImageSize, 
+            this.mCameraMatrix, 
+            this.mDistortionCoefficients, 
+            rvecs, 
+            tvecs,
+            this.mFlags
+            );
 
         this.mIsCalibrated = Core.checkRange(this.mCameraMatrix) 
             && Core.checkRange(this.mDistortionCoefficients);
 
-        this.mAvgReprojectionErrors = computeReprojectionErrors(objectPoints, rvecs, tvecs, reprojectionErrors);
+        this.mAvgReprojectionErrors = computeReprojectionErrors(this.mObjectPoints, rvecs, tvecs, reprojectionErrors);
 
         LOGGER.info("CalibrationSuccessful=" + this.mIsCalibrated
-            + "\n\nobjectPoints=" + objectPoints
-            + "\n\nrvecs=" + rvecs
-            + "\n\ntvecs=" + tvecs
-            + "\ndistortionCoefficients=" + this.mDistortionCoefficients
+        //    + "\n\nobjectPoints=" + objectPoints
+        //    + "\n\nrvecs=" + rvecs
+        //    + "\n\ntvecs=" + tvecs
+        //    + "\ndistortionCoefficients=" + this.mDistortionCoefficients
             + "\n\navgReprojectionErrors=" + this.mAvgReprojectionErrors
         );
-    }
 
-    public void clearCorners() {
-        this.mCornersBuffer.clear();
-    }
+        // reduce distortion in images
+        // debug code: test with single image
+        final var files = new File("src/resources/chessboard/1080p");
+        final String imageFilePath = List.of(files.list()).stream()
+            .map(fileName -> files.getAbsolutePath() + "/" + fileName)
+            .findFirst()
+            .orElse(null);
+        LOGGER.info("Reducing distortion of image " + imageFilePath);
+        final var dgbUndistortedImageMat = new Mat();
+        final var dgbImageMat = Imgcodecs.imread(imageFilePath);
+    
+        
+        // LOGGER.info("\n#########\n\tDistortion Coefficients: " + mDistortionCoefficients.dump());
+        // LOGGER.info("\n#########\n\tCamera Matrix: " + mCameraMatrix.dump());
+        // removes unwanted pixels from matrix and returns ROI
+        final var optimalMatrix = Calib3d.getOptimalNewCameraMatrix(
+            mCameraMatrix, mDistortionCoefficients, dgbImageMat.size(), 1);
+        // LOGGER.info("\n#########\n\tOptimal Camera Matrix: " + optimalMatrix.dump());
 
-    private void calcBoardCornerPositions(Mat corners) {
-        final int cn = 3;
-        float positions[] = new float[this.mCornersSize * cn];
+        Calib3d.undistort(
+            dgbImageMat, 
+            dgbUndistortedImageMat, 
+            mCameraMatrix, 
+            mDistortionCoefficients,
+            optimalMatrix);
+        // resize
+        Imgproc.resize(dgbImageMat, dgbImageMat, 
+            new Size(
+                dgbImageMat.width()*mScaleFactor, 
+                dgbImageMat.height()*mScaleFactor));
+                
+        Imgproc.resize(dgbUndistortedImageMat, dgbUndistortedImageMat, 
+            new Size(
+                dgbUndistortedImageMat.width()*mScaleFactor, 
+                dgbUndistortedImageMat.height()*mScaleFactor));
 
-        for (int i = 0; i < this.mPatternSize.height; i++) {
-            for (int j = 0; j < this.mPatternSize.width * cn; j += cn) {
-                positions[(int) (i * this.mPatternSize.width * cn + j + 0)] = (2 * (j / cn) + i % 2)
-                        * (float) this.mSquareSize;
-                positions[(int) (i * this.mPatternSize.width * cn + j + 1)] = i * (float) this.mSquareSize;
-                positions[(int) (i * this.mPatternSize.width * cn + j + 2)] = 0;
-            }
-        }
-        corners.create(this.mCornersSize, 1, CvType.CV_32FC3);
-        corners.put(0, 0, positions);
+        HighGui.imshow("before_dist", dgbImageMat);
+        HighGui.waitKey(2000);
+        HighGui.destroyWindow("before_dist");
+        HighGui.imshow("after_dist", dgbUndistortedImageMat);
+        HighGui.waitKey(2000);
+        HighGui.destroyAllWindows();
+
+
+        // return result
+        /* TODO is necessary to modify the matrices?
+            uncertantyMTX = 1.242*stdMTX
+            uncertantyDIST = 1.242*stdDist
+         */
+        final var result = new CalibrationData(
+            mCameraMatrix, 
+            mDistortionCoefficients,
+            rvecs,
+            tvecs,
+            mAvgReprojectionErrors,
+            mIsCalibrated);
+        return result;
     }
 
     private double computeReprojectionErrors(List<Mat> objectPoints, List<Mat> rvecs, List<Mat> tvecs,
@@ -117,7 +175,7 @@ public final class CameraCalibrator {
             MatOfPoint3f points = new MatOfPoint3f(objectPoints.get(i));
             Calib3d.projectPoints(points, rvecs.get(i), tvecs.get(i), this.mCameraMatrix, distortionCoefficients,
                     cornersProjected);
-            error = Core.norm(this.mCornersBuffer.get(i), cornersProjected, Core.NORM_L2);
+            error = Core.norm(this.mImagePoints.get(i), cornersProjected, Core.NORM_L2);
 
             int n = objectPoints.get(i).rows();
             viewErrors[i] = (float) Math.sqrt(error * error / n);
@@ -130,7 +188,22 @@ public final class CameraCalibrator {
         return Math.sqrt(totalError / totalPoints);
     }
 
+    public MatOfPoint3f getCorner3f() {
+		final var corners3f = new MatOfPoint3f();
+		final var point3 = new Point3[(int) (mPatternSize.height * mPatternSize.width)];
+		int cnt = 0;
+		for (int i = 0; i < mPatternSize.height; ++i) {
+			for (int j = 0; j < mPatternSize.width; ++j, cnt++) {
+				point3[cnt] = new Point3(j * mSquareSize, i * mSquareSize, 0.0d);
+			}
+		}
+		corners3f.fromArray(point3);
+		return corners3f;
+	}
+
     public boolean findCorners(String imageFilePath, BiConsumer<Mat, Mat> biConsumerOriginalAndProcessedFrame) {
+		final var corners3f = getCorner3f();
+        
         // read image and convert into gray frame mat
         final var rgbaFrame = Imgcodecs.imread(imageFilePath, -1);
         var grayFrame = new Mat();
@@ -141,27 +214,18 @@ public final class CameraCalibrator {
         final double sigmaX = 1;
         Imgproc.GaussianBlur(grayFrame, grayFrame, kSize, sigmaX);
 
-        // resize blurred image 
-        final var dSize = new Size(
-            grayFrame.width() * mScaleFactor,
-            grayFrame.height() * mScaleFactor);
-        final var resizedGrayFrame = new Mat();    
-        final var resizedRgbaFrame = new Mat();
-        Imgproc.resize(grayFrame, resizedGrayFrame, dSize);
-        Imgproc.resize(rgbaFrame, resizedRgbaFrame, dSize);
-
         // actual find corners
-        LOGGER.info("Searching for corners in " + imageFilePath + "...");
+        final var corners = new MatOfPoint2f();
         this.mCornersFound = Calib3d.findChessboardCorners(
-                resizedGrayFrame,
+                grayFrame,
                 mPatternSize,
-                this.mCorners,
+                corners
                 // TODO experiment with flags
                 // Calib3d.CALIB_CB_ADAPTIVE_THRESH + Calib3d.CALIB_CB_NORMALIZE_IMAGE + Calib3d.CALIB_CB_FAST_CHECK
-                -1
+                // , -1
         );
         if (this.mCornersFound) {
-            LOGGER.info("-> Corners found; starting optimization...");
+            // LOGGER.info("-> Corners found; starting optimization...");
 
             // termination criteria for Subpixel Optimization
             final TermCriteria termCriteria =  new TermCriteria(
@@ -170,28 +234,28 @@ public final class CameraCalibrator {
                     0.001);
             // optimize image
             Imgproc.cornerSubPix(
-                    resizedGrayFrame,
-                    this.mCorners,
-                    new Size(11, 11), // when no resize consider 22, 22
+                    grayFrame,
+                    corners,
+                    new Size(10.5, 10.5), // when no resize consider 22, 22
                     new Size(-1, -1),
                     termCriteria);
-            LOGGER.info("--> optimized");
+            // LOGGER.info("--> optimized");
+
+            // add 3D world and 2D representation
+            this.mObjectPoints.add(corners3f);
+            this.mImagePoints.add(corners);
 
             // draw chessboard corners
-            final var resizedRgbaWithCornersFrame = resizedRgbaFrame.clone();
             Calib3d.drawChessboardCorners(
-                resizedRgbaWithCornersFrame,
+                grayFrame,
                 mPatternSize, 
-                mCorners,
+                corners,
                 mCornersFound);
-
-            // finally fill corners buffer
-            addCorners();
 
             // apply info text
             Imgproc.putText(
-                resizedRgbaWithCornersFrame, 
-                "Captured: " + this.mCornersBuffer.size(),
+                grayFrame, 
+                "Captured: " + this.mImagePoints.size(),
                 new Point(32, 32), 
                 Imgproc.FONT_HERSHEY_DUPLEX, 
                 1,
@@ -199,39 +263,20 @@ public final class CameraCalibrator {
                 2);
             
             // callback
+            final var resizedOrignal = new Mat();
+            final var resizedGray = new Mat();
+            final var previewSize = new Size(
+                rgbaFrame.width() * mScaleFactor, 
+                rgbaFrame.height() * mScaleFactor);
+            Imgproc.resize(rgbaFrame, resizedOrignal, previewSize);
+            Imgproc.resize(grayFrame, resizedGray, previewSize);
+
             biConsumerOriginalAndProcessedFrame.accept(
-                resizedRgbaFrame,
-                resizedRgbaWithCornersFrame);
+                resizedOrignal,
+                resizedGray);
         }
         return this.mCornersFound;
     }
-
-    private void addCorners() {
-        if (this.mCornersFound) {
-            this.mCornersBuffer.add(this.mCorners.clone());
-        }
-        
-    }
-
-    /*
-    private void drawPoints(Mat rgbaFrame) {
-        Calib3d.drawChessboardCorners(
-                rgbaFrame,
-                this.mPatternSize,
-                this.mCorners,
-                this.mCornersFound);
-    }
-    */
-
-    /*
-    private void renderFrame(Mat rgbaFrame) {
-        drawPoints(rgbaFrame);
-
-        Imgproc.putText(rgbaFrame, "Captured: " + this.mCornersBuffer.size(),
-                new Point(rgbaFrame.cols() / 3 * 2, rgbaFrame.rows() * 0.1), Imgproc.FONT_HERSHEY_SIMPLEX, 1.0,
-                new Scalar(255, 255, 0));
-    }
-    */
 
     public Mat getCameraMatrix() {
         return this.mCameraMatrix;
@@ -247,22 +292,6 @@ public final class CameraCalibrator {
 
     public void setDistortionCoefficients(Mat distortionCoefficients) {
         this.mDistortionCoefficients = distortionCoefficients;
-    }
-
-    public int getCornersBufferSize() {
-        return this.mCornersBuffer.size();
-    }
-
-    public MatOfPoint2f getCorners() {
-        return this.mCorners;
-    }
-
-    public List<Mat> getCornersBuffer() {
-        return this.mCornersBuffer;
-    } 
-
-    public void setCornersBuffer(List<Mat> cornersBuffer) {
-        this.mCornersBuffer = cornersBuffer;
     }
 
     public double getAvgReprojectionError() {

@@ -1,6 +1,8 @@
 package de.leidenheit;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.Serializable;
 import java.net.URL;
 import java.nio.file.Files;
@@ -8,6 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.opencv.core.Mat;
+import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -46,10 +52,6 @@ public class ResourceProvider {
                 .toList()    
             );
             count = resourceContentFilePaths.size();
-
-            LOGGER.info(count + " files found in " 
-                + resourcePath + ": \n" 
-                + resourceContentFilePaths);        
          } catch (Exception exception) {
             LOGGER.warning(resourcePath + " throws " + exception.getMessage());
             resourceContentFilePaths.clear();
@@ -81,17 +83,29 @@ public class ResourceProvider {
         */
     }
 
-    public void writeResource(Object object, String resourceDirectory, String resourceFileName) {
-        final var objMapper = new ObjectMapper();
+    public void writeMatResource(Mat matrix, String resourceDirectory, String resourceFileName) {
         try {
-            var targetFile = new File("src/resources/" + resourceDirectory);
-            targetFile.mkdirs();
-            targetFile = new File(targetFile.getPath() + "/" + resourceFileName);
-            objMapper.writeValue(targetFile, object);
-            LOGGER.info("Successfully serialized into " + targetFile.getAbsolutePath());   
-        } catch (Exception e) {
-            LOGGER.warning("throws " + e.getMessage());
+            final var targetFile = prepareFile(resourceDirectory, resourceFileName);
+            new ObjectMapper().writeValue(targetFile, matrix);
+            LOGGER.info("Successfully serialized into " + targetFile.getAbsolutePath());
+        } catch (Exception ex) {
+            // todo
         }
     }
 
+    public void writeMatMultiResource(List<Mat> matrixList, String resourceDirectory, String resourceFileName) {
+        final var targetFile = prepareFile(resourceDirectory, resourceFileName);
+        try {
+            new ObjectMapper().writeValue(targetFile, matrixList);
+            LOGGER.info("Successfully serialized into " + targetFile.getAbsolutePath());
+        } catch (Exception ex) {
+            // todo
+        }
+    }
+
+    private File prepareFile(String resourceDirectory, String resourceFileName) {
+        var targetFile = new File("src/resources/" + resourceDirectory);
+        targetFile.mkdirs();
+        return new File(targetFile.getPath() + "/" + resourceFileName);
+    }
 }
