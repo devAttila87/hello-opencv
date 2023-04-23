@@ -156,7 +156,20 @@ public class Main {
                 }
             
                 // calibrate with the infos
-                final var calibrationResult = cameraCalibrator.calibrate(); 
+                final var calibrationResult = cameraCalibrator.calibrate();
+
+                // distortion test
+                final var dartsboardImagePaths = resProvider
+                    .findFilePathsFromResourcePath("dartsboard/1080p");
+
+                LOGGER.info("distortion of " + dartsboardImagePaths + "...");
+                for (String imagePath: dartsboardImagePaths) {
+                    cameraCalibrator.distortFunction(imagePath);
+
+                    // debug 
+                    System.out.println("Press any key to continue.....");
+                    scanner.nextLine();
+                }
             }
              // */
 
@@ -204,6 +217,7 @@ public class Main {
             // }
             
             LOGGER.info("done");
+            return;
         };
     }
 }

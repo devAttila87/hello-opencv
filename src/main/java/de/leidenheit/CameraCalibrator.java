@@ -9,6 +9,7 @@ import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.MatOfPoint3f;
 import org.opencv.core.Point;
 import org.opencv.core.Point3;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.core.TermCriteria;
@@ -43,7 +44,7 @@ public final class CameraCalibrator {
     private Mat mDistortionCoefficients = Mat.zeros(5, 1, CvType.CV_64FC1);
     private int mFlags;
     private double mAvgReprojectionErrors;
-    private double mSquareSize = 30; // mm
+    private double mSquareSize = 30d; // mm
     private Size mImageSize;
 
     private double mScaleFactor = 0.5d; // used to resize images 
@@ -89,38 +90,48 @@ public final class CameraCalibrator {
             tvecs,
             this.mFlags
             );
-
-        this.mIsCalibrated = Core.checkRange(this.mCameraMatrix) 
-            && Core.checkRange(this.mDistortionCoefficients);
-
+        this.mIsCalibrated = Core.checkRange(this.mCameraMatrix) && Core.checkRange(this.mDistortionCoefficients);
         this.mAvgReprojectionErrors = computeReprojectionErrors(this.mObjectPoints, rvecs, tvecs, reprojectionErrors);
-
         LOGGER.info("CalibrationSuccessful=" + this.mIsCalibrated
         //    + "\n\nobjectPoints=" + objectPoints
         //    + "\n\nrvecs=" + rvecs
         //    + "\n\ntvecs=" + tvecs
         //    + "\ndistortionCoefficients=" + this.mDistortionCoefficients
-            + "\n\navgReprojectionErrors=" + this.mAvgReprojectionErrors
-        );
+            + "\n\navgReprojectionErrors=" + this.mAvgReprojectionErrors);
 
+        return new CalibrationData(
+            mCameraMatrix, 
+            mDistortionCoefficients,
+            rvecs,
+            tvecs,
+            mAvgReprojectionErrors,
+            mIsCalibrated);
+    }
+
+    public void distortFunction(String imageFilePath) {
         // reduce distortion in images
         // debug code: test with single image
-        final var files = new File("src/resources/chessboard/1080p");
-        final String imageFilePath = List.of(files.list()).stream()
-            .map(fileName -> files.getAbsolutePath() + "/" + fileName)
-            .findFirst()
-            .orElse(null);
+        //final var files = new File("src/resources/chessboard/1080p");
+        //final String imageFilePath = List.of(files.list()).stream()
+        //    .map(fileName -> files.getAbsolutePath() + "/" + fileName)
+        //    .findFirst()
+        //    .orElse(null);
         LOGGER.info("Reducing distortion of image " + imageFilePath);
         final var dgbUndistortedImageMat = new Mat();
         final var dgbImageMat = Imgcodecs.imread(imageFilePath);
-    
-        
         // LOGGER.info("\n#########\n\tDistortion Coefficients: " + mDistortionCoefficients.dump());
         // LOGGER.info("\n#########\n\tCamera Matrix: " + mCameraMatrix.dump());
         // removes unwanted pixels from matrix and returns ROI
+        final var roi = new Rect();
         final var optimalMatrix = Calib3d.getOptimalNewCameraMatrix(
-            mCameraMatrix, mDistortionCoefficients, dgbImageMat.size(), 1);
-        // LOGGER.info("\n#########\n\tOptimal Camera Matrix: " + optimalMatrix.dump());
+            mCameraMatrix, 
+            mDistortionCoefficients, 
+            dgbImageMat.size(), 
+            1, 
+            dgbImageMat.size(),
+            roi);
+        //LOGGER.info("\n#########\n\tOptimal Camera Matrix: " + optimalMatrix.dump()  
+        //    + "\nROI=" + roi);
 
         Calib3d.undistort(
             dgbImageMat, 
@@ -128,6 +139,17 @@ public final class CameraCalibrator {
             mCameraMatrix, 
             mDistortionCoefficients,
             optimalMatrix);
+                    
+        // crop the image based on ROI
+        int x = (int) roi.tl().x;
+        int y = (int) roi.tl().y;
+        int w = (int) (roi.br().x - roi.tl().x);
+        int h = (int) (roi.br().y - roi.tl().y);
+        Mat cropped = new Mat(dgbUndistortedImageMat, new org.opencv.core.Rect(x, y, w, h));
+        HighGui.imshow("cropped", cropped);
+        HighGui.waitKey(20);
+        HighGui.destroyWindow("cropped");
+
         // resize
         Imgproc.resize(dgbImageMat, dgbImageMat, 
             new Size(
@@ -140,27 +162,12 @@ public final class CameraCalibrator {
                 dgbUndistortedImageMat.height()*mScaleFactor));
 
         HighGui.imshow("before_dist", dgbImageMat);
-        HighGui.waitKey(2000);
+        HighGui.waitKey(20);
         HighGui.destroyWindow("before_dist");
         HighGui.imshow("after_dist", dgbUndistortedImageMat);
-        HighGui.waitKey(2000);
+        HighGui.waitKey(20);
         HighGui.destroyAllWindows();
-
-
-        // return result
-        /* TODO is necessary to modify the matrices?
-            uncertantyMTX = 1.242*stdMTX
-            uncertantyDIST = 1.242*stdDist
-         */
-        final var result = new CalibrationData(
-            mCameraMatrix, 
-            mDistortionCoefficients,
-            rvecs,
-            tvecs,
-            mAvgReprojectionErrors,
-            mIsCalibrated);
-        return result;
-    }
+    } 
 
     private double computeReprojectionErrors(List<Mat> objectPoints, List<Mat> rvecs, List<Mat> tvecs,
                                              Mat perViewErrors) {
