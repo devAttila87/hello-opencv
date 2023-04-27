@@ -1,6 +1,6 @@
 package de.leidenheit;
 
-import nu.pattern.OpenCV;
+import org.opencv.aruco.*;
 import org.opencv.calib3d.Calib3d;
 import org.opencv.core.Mat;
 import org.opencv.highgui.HighGui;
@@ -10,12 +10,16 @@ import org.opencv.videoio.VideoCapture;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.dnn.DictValue;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
 import javax.swing.border.Border;
+
+import org.opencv.aruco.*;
 
 import java.awt.*;
 import java.awt.event.KeyEvent;
@@ -31,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -49,8 +54,13 @@ public class Main {
         LOGGER.setLevel(Level.INFO);
 
         // load openCV
-        OpenCV.loadLocally();
+        // OpenCV.loadLocally();
         LOGGER.info("OpenCV loaded successfully :-)");
+
+
+                    
+        // test of so library
+        System.load("/home/leidenheit/hello-opencv/lib/libopencv_java460.so");
 
 
         // create gui
@@ -158,21 +168,100 @@ public class Main {
                 // calibrate with the infos
                 final var calibrationResult = cameraCalibrator.calibrate();
 
+                // aruco marker test
+                /* working prototype YEAH :D
+                final var arucoImagePaths = resProvider
+                    .findFilePathsFromResourcePath("dartsboard/1080p");         
+                for (String imagePath : arucoImagePaths) { 
+                    final var imageWithArucoMarkers = Imgcodecs.imread(imagePath);
+                    LOGGER.info("trying to detect aruco markers in " + imagePath);
+                    final var img = Imgcodecs.imread(imagePath);
+                    final var corners = new ArrayList<Mat>();
+                    final var ids = new Mat();
+                    final var rejectedImagePoints = new ArrayList<Mat>();
+
+
+
+                    final var dict = Aruco.getPredefinedDictionary(Aruco.DICT_6X6_250); 
+                    final var detectorParams = DetectorParameters.create();
+                    Aruco.detectMarkers(
+                        img,
+                        dict,
+                        corners,
+                        ids,
+                        detectorParams
+                        ,rejectedImagePoints
+                    );
+                    LOGGER.info("aruco detected marker: " 
+                        + "\ncorners=" + corners.size()
+                        + "\nrejections=" + rejectedImagePoints.size()
+                    );
+                    Aruco.drawDetectedMarkers(
+                        img,
+                        corners,
+                        ids,
+                        new Scalar(0,0, 161)
+                    ); 
+                    HighGui.imshow("before-aruco", imageWithArucoMarkers);
+                    HighGui.waitKey(20);
+                    HighGui.imshow("auruco", img);
+                    HighGui.waitKey(20);
+                    HighGui.destroyAllWindows();
+                }
+                */
+
+
+
+                System.out.println("Press any key to continue.....");
+                scanner.nextLine();
+
+
                 // distortion test
                 final var dartsboardImagePaths = resProvider
                     .findFilePathsFromResourcePath("dartsboard/1080p");
 
                 LOGGER.info("distortion of " + dartsboardImagePaths + "...");
                 for (String imagePath: dartsboardImagePaths) {
-                    cameraCalibrator.distortFunction(imagePath);
+                    final var undistortedImage = cameraCalibrator.distortFunction(imagePath);
 
                     // debug 
-                    System.out.println("Press any key to continue.....");
-                    scanner.nextLine();
+                    // System.out.println("Press any key to continue.....");
+                    // scanner.nextLine();
+
+
+                    // aruco detection of undistorted
+                    LOGGER.info("trying to detect aruco markers in " + imagePath);
+                    final var corners = new ArrayList<Mat>();
+                    final var ids = new Mat();
+                    final var rejectedImagePoints = new ArrayList<Mat>();
+
+                    final var dict = Aruco.getPredefinedDictionary(Aruco.DICT_6X6_250); 
+                    final var detectorParams = DetectorParameters.create();
+                    Aruco.detectMarkers(
+                        undistortedImage,
+                        dict,
+                        corners,
+                        ids,
+                        detectorParams
+                        ,rejectedImagePoints
+                    );
+                    LOGGER.info("aruco detected marker: " 
+                        + "\ncorners=" + corners.size()
+                        + "\nrejections=" + rejectedImagePoints.size()
+                    );
+                    Aruco.drawDetectedMarkers(
+                        undistortedImage,
+                        corners,
+                        ids,
+                        new Scalar(0,0, 161)
+                    ); 
+                    HighGui.imshow("aruco", undistortedImage);
+                    HighGui.waitKey(20);
+                    HighGui.destroyWindow("aruco");
                 }
+                HighGui.destroyAllWindows();
             }
              // */
-
 
 
 

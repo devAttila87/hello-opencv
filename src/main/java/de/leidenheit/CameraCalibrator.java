@@ -41,7 +41,9 @@ public final class CameraCalibrator {
     // private Mat mCameraMatrix = new Mat();
     // private Mat mDistortionCoefficients = new Mat();
     private Mat mCameraMatrix = Mat.eye(3, 3, CvType.CV_64FC1);
-    private Mat mDistortionCoefficients = Mat.zeros(5, 1, CvType.CV_64FC1);
+    
+    private MatOfDouble mDistortionCoefficients = new MatOfDouble(); 
+    // Mat.zeros(5, 1, CvType.CV_64FC1);
     private int mFlags;
     private double mAvgReprojectionErrors;
     private double mSquareSize = 30d; // mm
@@ -50,6 +52,9 @@ public final class CameraCalibrator {
     private double mScaleFactor = 0.5d; // used to resize images 
 
     public CameraCalibrator(int width, int height) {
+        
+        Mat.zeros(5, 1, CvType.CV_64FC1).copyTo(mDistortionCoefficients);
+        
         this.mImageSize = new Size(width, height);
         this.mFlags = 0
             + Calib3d.CALIB_FIX_PRINCIPAL_POINT // marginal
@@ -108,7 +113,7 @@ public final class CameraCalibrator {
             mIsCalibrated);
     }
 
-    public void distortFunction(String imageFilePath) {
+    public Mat distortFunction(String imageFilePath) {
         // reduce distortion in images
         // debug code: test with single image
         //final var files = new File("src/resources/chessboard/1080p");
@@ -139,7 +144,9 @@ public final class CameraCalibrator {
             mCameraMatrix, 
             mDistortionCoefficients,
             optimalMatrix);
-                    
+        
+        /*
+
         // crop the image based on ROI
         int x = (int) roi.tl().x;
         int y = (int) roi.tl().y;
@@ -161,12 +168,16 @@ public final class CameraCalibrator {
                 dgbUndistortedImageMat.width()*mScaleFactor, 
                 dgbUndistortedImageMat.height()*mScaleFactor));
 
+        
         HighGui.imshow("before_dist", dgbImageMat);
         HighGui.waitKey(20);
         HighGui.destroyWindow("before_dist");
         HighGui.imshow("after_dist", dgbUndistortedImageMat);
         HighGui.waitKey(20);
-        HighGui.destroyAllWindows();
+        HighGui.destroyWindow("after_dist");
+        */
+
+        return dgbUndistortedImageMat;
     } 
 
     private double computeReprojectionErrors(List<Mat> objectPoints, List<Mat> rvecs, List<Mat> tvecs,
@@ -293,11 +304,11 @@ public final class CameraCalibrator {
         this.mCameraMatrix = cameraMatrix;
     }
 
-    public Mat getDistortionCoefficients() {
+    public MatOfDouble getDistortionCoefficients() {
         return this.mDistortionCoefficients;
     }
 
-    public void setDistortionCoefficients(Mat distortionCoefficients) {
+    public void setDistortionCoefficients(MatOfDouble distortionCoefficients) {
         this.mDistortionCoefficients = distortionCoefficients;
     }
 
