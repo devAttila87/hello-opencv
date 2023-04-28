@@ -33,5 +33,8 @@ hs_err_pid*
 .history/
 *.vsix
 
+# build
+target
+
 # large resources
 src/resources/chessboard/same_size/*

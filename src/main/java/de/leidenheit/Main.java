@@ -2,6 +2,7 @@ package de.leidenheit;
 
 import org.opencv.aruco.*;
 import org.opencv.calib3d.Calib3d;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -215,10 +216,11 @@ public class Main {
                 */
 
 
-
+                // debug
+                /*
                 System.out.println("Press any key to continue.....");
                 scanner.nextLine();
-
+                */
 
                 // distortion test
                 final var dartsboardImagePaths = resProvider
@@ -338,25 +340,29 @@ public class Main {
                          */
 
                         // point1
-                        var index = entries.indexOf("0");
+                        // var index = entries.indexOf("0");
+                        var index = entries.indexOf("2");
                         final var point1 = markerCorners.get(index)
                             .get(0, 0);
                         LOGGER.info("This is the first point=" + point1[0] + "," + point1[1]);
 
                         // point2
-                        index = entries.indexOf("1");
+                        // index = entries.indexOf("1");
+                        index = entries.indexOf("3");
                         final var point2 = markerCorners.get(index)
                             .get(0, 1);
                         LOGGER.info("This is the second point=" + point2[0] + "," + point2[1]);
 
                         // point3
-                        index = entries.indexOf("2");
+                        // index = entries.indexOf("2");
+                        index = entries.indexOf("0");
                         final var point3 = markerCorners.get(index)
                             .get(0, 2);
                         LOGGER.info("This is the third point=" + point3[0] + "," + point3[1]);
 
                         // point4
-                        index = entries.indexOf("3");
+                        // index = entries.indexOf("3");
+                        index = entries.indexOf("1");
                         final var point4 = markerCorners.get(index)
                             .get(0, 3);
                         LOGGER.info("This is the fourth point=" + point4[0] + "," + point4[1]);
@@ -372,10 +378,14 @@ public class Main {
                         );
                         final var destPoints = new MatOfPoint2f();
                         destPoints.fromArray(
+                            //new Point(0, 0),
+                            //new Point(500, 0),
+                            //new Point(500, 500),
+                            //new Point(0, 500)
                             new Point(0, 0),
-                            new Point(500, 0),
-                            new Point(500, 500),
-                            new Point(0, 500)
+                            new Point(1000, 0),
+                            new Point(1000, 1000),
+                            new Point(0, 1000)
                         );
                         final var homoMat = Calib3d.findHomography(
                             sourcePoints,
@@ -389,7 +399,8 @@ public class Main {
                             undistortedImage,
                             warpPerspectiveImg,
                             homoMat,
-                            new Size(500, 500)
+                            // new Size(500, 500)
+                            new Size(1000, 1000)
                         );
 
                         // point debug
@@ -399,6 +410,7 @@ public class Main {
                             new Point(point3[0], point3[1]),
                             new Point(point4[0], point4[1])
                         };
+                        /* debug but seems to not work properly
                         for (Point pt : dbgPoints) {
                             Imgproc.circle(warpPerspectiveImg,
                                 pt, 
@@ -406,10 +418,22 @@ public class Main {
                                 new Scalar(255, 0, 255), 
                                 4);   
                         }
-
+                        */
+                        
+                        /*
                         HighGui.imshow("warp", warpPerspectiveImg);
                         HighGui.waitKey(20);
                         HighGui.destroyWindow("warp");
+                        */
+
+                        final var rotatedImg = new Mat(); 
+                        Core.rotate(
+                            warpPerspectiveImg,
+                            rotatedImg,  
+                            Core.ROTATE_180);
+                        HighGui.imshow("rotated", rotatedImg);
+                        HighGui.waitKey(20);
+                        HighGui.destroyWindow("rotated");
 
                         // debug 
                         // System.out.println("Press any key to continue.....");
