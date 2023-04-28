@@ -1,0 +1,34 @@
+marker ids = 3 2 1 0
+
+corners:
+
+marker matrix filled (represents a single detected marker) 
+-------------
+col|row|value
+==========================================================
+                [0][0][0] -> 571
+                [0][0][1] -> 657
+// point1
+index = markerIds.findIndex(id -> id == 0)
+point1 = corners.get(index, 0).get(0)
+
+
+                [1][0][0] -> 681
+                [1][0][1] -> 658
+// point2
+index = markerIds.findIndex(id -> id == 1)
+point1 = corners.get(index, 0).get(1)
+
+
+                [2][0][0] -> 673
+                [2][0][1] -> 716
+// point3
+index = markerIds.findIndex(id -> id == 2)
+point1 = corners.get(index, 0).get(2)
+
+
+                [3][0][0] -> 560
+                [3][0][1] -> 716
+// point3
+index = markerIds.findIndex(id -> id == 3)
+point1 = corners.get(index, 0).get(3)

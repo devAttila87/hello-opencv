@@ -10,6 +10,7 @@ import org.opencv.videoio.VideoCapture;
 
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.dnn.DictValue;
@@ -34,6 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.Vector;
 import java.util.logging.Level;
@@ -107,6 +110,7 @@ public class Main {
 
         // start computer vision
         Main.startComputerVision(cameraFeed, processedFeed, camera).run();
+        return;
     }
 
     private static Runnable startComputerVision(final JPanel cameraFeed,
@@ -231,8 +235,8 @@ public class Main {
 
                     // aruco detection of undistorted
                     LOGGER.info("trying to detect aruco markers in " + imagePath);
-                    final var corners = new ArrayList<Mat>();
-                    final var ids = new Mat();
+                    final var markerCorners = new ArrayList<Mat>();
+                    final var markerIds = new Mat();
                     final var rejectedImagePoints = new ArrayList<Mat>();
 
                     final var dict = Aruco.getPredefinedDictionary(Aruco.DICT_6X6_250); 
@@ -240,24 +244,186 @@ public class Main {
                     Aruco.detectMarkers(
                         undistortedImage,
                         dict,
-                        corners,
-                        ids,
+                        markerCorners,
+                        markerIds,
                         detectorParams
                         ,rejectedImagePoints
                     );
                     LOGGER.info("aruco detected marker: " 
-                        + "\ncorners=" + corners.size()
+                        + "\nmarkerCorners=" + markerCorners.size() + "; corners[0]=" + markerCorners.get(0).dump() 
+                        // + "\ncorners[0]=" + markerCorners.get(0).get(0,0)[0]
+                        // + "\ncorners[0]=" + markerCorners.get(1).get(0,0)[0]
+                        // + "\ncorners[0]=" + markerCorners.get(1).get(0,0)[0]
+                        // + "\ncorners[0]=" + markerCorners.get(2).get(0,0)[0]
+                        + "\nmarkerIds=" + markerIds.dump() + "; rows=" + markerIds.rows() + "; cols=" + markerIds.cols() 
                         + "\nrejections=" + rejectedImagePoints.size()
                     );
                     Aruco.drawDetectedMarkers(
                         undistortedImage,
-                        corners,
-                        ids,
+                        markerCorners,
+                        markerIds,
                         new Scalar(0,0, 161)
                     ); 
-                    HighGui.imshow("aruco", undistortedImage);
-                    HighGui.waitKey(20);
-                    HighGui.destroyWindow("aruco");
+                    // HighGui.imshow("aruco", undistortedImage);
+                    // HighGui.waitKey(20);
+                    /// HighGui.destroyWindow("aruco");
+
+                    // test cropping the image based on the inner corners
+                    // of aruco markers
+                    // check if all corners are present in image
+                    // debug 
+                    // System.out.println("Press any key to continue.....");
+                    // scanner.nextLine();
+                    var markerIdsAsString = markerIds.dump();
+                    // this regex removes [] newline tab space from a given string
+                    
+                    markerIdsAsString = markerIdsAsString.replaceAll("[\\[\\]\n\t ]", "");
+                    final var expectedMarkerIds = java.util.List.of("0","1", "2", "3");
+                    LOGGER.info("expected markerIds: " + expectedMarkerIds);
+                    final var entries = Arrays.asList(markerIdsAsString.split(";"));
+                    LOGGER.info("actual markerIds: " + entries);
+                    final var validMarkerIds = markerIds.cols() == 1 && markerIds.rows() == 4 
+                        && expectedMarkerIds.containsAll(entries);   
+                    /**/
+                    if (validMarkerIds) {
+                        // TODO extract coordinates from aruco positions
+                        // crop image using that coordinates
+                        /*
+                        int[] innerCorners = {2, 3, 0, 1};
+                        int[] outerCorners = {0, 1, 2, 3};  
+                        */
+
+                        // analyzing markerIds matrix
+                        /*
+                        final var markerIdsRows = markerIds.rows();
+                        final var markerIdsCols = markerIds.cols();
+                        LOGGER.info("makerIdsColsRows="+markerIdsCols+","+markerIdsRows);
+                        for (int i = 0; i < markerIdsCols; i++) {
+                            for (int k = 0; k < markerIdsRows; k++) {
+                                final var matrixValueArray = markerIds.get(k, i);
+                                if (matrixValueArray.length > 1) {
+                                    LOGGER.warning("matrix value array length > 1:\n"
+                                        + "indices=" + i + "," + k
+                                    );
+                                }
+                                LOGGER.info(
+                                    "matrix col[" + i + "]:"
+                                    + "\nrow[" + k + "]=" + markerIds.get(k, i)[0]
+                                );
+                            }
+                        } 
+                        */
+
+
+
+                        // analyzing marker corners matrices
+                        /*
+                        for (Mat markerCornersEntry : markerCorners) {           
+                            final var cornersRows = markerCornersEntry.rows();
+                            final var cornerCols = markerCornersEntry.cols();
+                            // LOGGER.info("markerCornersEntry->cornerColsRows="+cornerCols+","+cornersRows);
+                            for (int i = 0; i < cornerCols; i++) {
+                                for (int k = 0; k < cornersRows; k++) {
+                                    final var matrixValueArray = markerCornersEntry.get(k, i);
+                                    LOGGER.info("\n\n########## matrixValueArraySize=" + matrixValueArray.length);
+                                    for(int j = 0; j<matrixValueArray.length; j++) {
+                                        LOGGER.info("col[" + i + "]row[" + k + "]" 
+                                            + "value["+ j +"]=" +markerCornersEntry.get(k, i)[j]
+                                        );   
+                                    }
+                                
+                                }
+                            }
+                        }
+                         */
+
+                        // point1
+                        var index = entries.indexOf("0");
+                        final var point1 = markerCorners.get(index)
+                            .get(0, 0);
+                        LOGGER.info("This is the first point=" + point1[0] + "," + point1[1]);
+
+                        // point2
+                        index = entries.indexOf("1");
+                        final var point2 = markerCorners.get(index)
+                            .get(0, 1);
+                        LOGGER.info("This is the second point=" + point2[0] + "," + point2[1]);
+
+                        // point3
+                        index = entries.indexOf("2");
+                        final var point3 = markerCorners.get(index)
+                            .get(0, 2);
+                        LOGGER.info("This is the third point=" + point3[0] + "," + point3[1]);
+
+                        // point4
+                        index = entries.indexOf("3");
+                        final var point4 = markerCorners.get(index)
+                            .get(0, 3);
+                        LOGGER.info("This is the fourth point=" + point4[0] + "," + point4[1]);
+
+
+                        // do homopgraphy
+                        final var sourcePoints = new MatOfPoint2f();
+                        sourcePoints.fromArray(
+                            new Point(point1[0], point1[1]), 
+                            new Point(point2[0], point2[1]),
+                            new Point(point3[0], point3[1]),
+                            new Point(point4[0], point4[1])
+                        );
+                        final var destPoints = new MatOfPoint2f();
+                        destPoints.fromArray(
+                            new Point(0, 0),
+                            new Point(500, 0),
+                            new Point(500, 500),
+                            new Point(0, 500)
+                        );
+                        final var homoMat = Calib3d.findHomography(
+                            sourcePoints,
+                            destPoints
+                        );
+                        LOGGER.info("homography: " + homoMat.dump());
+
+                        // warp perspective
+                        final var warpPerspectiveImg = new Mat();
+                        Imgproc.warpPerspective(
+                            undistortedImage,
+                            warpPerspectiveImg,
+                            homoMat,
+                            new Size(500, 500)
+                        );
+
+                        // point debug
+                        Point[] dbgPoints = {
+                            new Point(point1[0], point1[1]), 
+                            new Point(point2[0], point2[1]),
+                            new Point(point3[0], point3[1]),
+                            new Point(point4[0], point4[1])
+                        };
+                        for (Point pt : dbgPoints) {
+                            Imgproc.circle(warpPerspectiveImg,
+                                pt, 
+                                3, 
+                                new Scalar(255, 0, 255), 
+                                4);   
+                        }
+
+                        HighGui.imshow("warp", warpPerspectiveImg);
+                        HighGui.waitKey(20);
+                        HighGui.destroyWindow("warp");
+
+                        // debug 
+                        // System.out.println("Press any key to continue.....");
+                        // scanner.nextLine();
+                    } else {
+                        LOGGER.warning("ArUco marker ids invalid: " 
+                        + markerIds.dump() 
+                        + "; rows=" + markerIds.rows() 
+                        + "; cols=" + markerIds.cols());
+                        // debug 
+                        // System.out.println("Press any key to continue.....");
+                        // scanner.nextLine();
+                    }
+
                 }
                 HighGui.destroyAllWindows();
             }
