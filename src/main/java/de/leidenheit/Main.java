@@ -121,28 +121,26 @@ public class Main {
             // debug
             Scanner scanner = new Scanner(System.in);
 
-            /* not working */
-            // instantiate a camera calibrator
-            final var cameraCalibrator = new CameraCalibrator(1920, 1080);
-
+            final var cameraParameter = CameraParameter.defaultParameter();
             final var reuseCalibrationImages = true;
             if (!reuseCalibrationImages) {
                 // TODO implement webcam
                 throw new RuntimeException("Not yet implemented");
             } else {
-                // read all files from /resource/chessboard into an array
-                final var resProvider = new ResourceProvider();
-                final var imagePaths = resProvider
+                final var resourceProvider = new ResourceProvider();
+                final var imagePaths = resourceProvider
                     .findFilePathsFromResourcePath("chessboard/1080p");
-
+                final var chessboardData = ChessboardData.init();
+                    
                 // for each image do find chessboard corners
                 LOGGER.info("Searching for corners in " + imagePaths + "...");
                 for (String imagePath: imagePaths) {
                     final var img = new File(imagePath);                
-                           
                     // find corners and store the result in the calibrator instance
-                    final var hasCorners = cameraCalibrator.findCorners(
+                    final var hasCorners = CameraCalibrator.findCorners(
                         img.getAbsolutePath(), 
+                        cameraParameter,
+                        chessboardData,
                         (originalFrame, cornersFrame) -> {
                             // clear and repaint Jpanels
                             cameraFeed.removeAll();
@@ -164,14 +162,24 @@ public class Main {
                         scanner.nextLine(); 
                         continue;
                     }
-
+                    // break;
                     // debug 
                     // System.out.println("Press any key to continue.....");
-                    // scanner.nextLine(); 
+                    // scanner.nextLine();
+
+                    // TODO remove; only debug
+                    // break; 
                 }
             
                 // calibrate with the infos
-                final var calibrationResult = cameraCalibrator.calibrate();
+                final var calibrationData = CameraCalibrator.calibrate(
+                    cameraParameter,
+                    chessboardData
+                );
+
+                // debug 
+                System.out.println("Press any key to continue.....");
+                scanner.nextLine();
 
                 // aruco marker test
                 /* working prototype YEAH :D
@@ -223,17 +231,20 @@ public class Main {
                 */
 
                 // distortion test
-                final var dartsboardImagePaths = resProvider
+                final var dartsboardImagePaths = resourceProvider
                     .findFilePathsFromResourcePath("dartsboard/1080p");
 
                 LOGGER.info("distortion of " + dartsboardImagePaths + "...");
                 for (String imagePath: dartsboardImagePaths) {
-                    final var undistortedImage = cameraCalibrator.distortFunction(imagePath);
 
                     // debug 
-                    // System.out.println("Press any key to continue.....");
-                    // scanner.nextLine();
+                    System.out.println("Press any key to continue.....");
+                    scanner.nextLine();
 
+                    final var undistortedImage = DetectionUtil.distortFunction(
+                        imagePath, 
+                        cameraParameter,
+                        calibrationData);
 
                     // aruco detection of undistorted
                     LOGGER.info("trying to detect aruco markers in " + imagePath);
