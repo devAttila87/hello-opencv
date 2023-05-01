@@ -1,16 +1,26 @@
 package de.leidenheit;
 
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgproc.Imgproc;
+
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.aruco.Aruco;
+import org.opencv.aruco.DetectorParameters;
 import org.opencv.calib3d.Calib3d;
 
 import java.awt.Graphics;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
-
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.logging.Logger;
 
 import javax.swing.JPanel;
@@ -20,17 +30,20 @@ public final class DetectionUtil {
     private static final Logger LOGGER = Logger.getLogger("DetectionUtil");
 
     /** 
-     * Distorts a image using given calibration information.
+     * Distorts an image using given calibration information.
      * 
      * @param imageFilePath
      * @param cameraParameter
      * @param calibrationData
-     * @return
+     * @param debug 
+     * @return Returns distorted image {@link Mat} which is resized 
+     * to a given scale factor.
      */
     public static Mat distortFunction(
         final String imageFilePath, 
         final CameraParameter cameraParameter,
-        final CalibrationData calibrationData) {
+        final CalibrationData calibrationData,
+        final boolean debug) {
         // reduce distortion in images
         // debug code: test with single image
         //final var files = new File("src/resources/chessboard/1080p");
@@ -60,22 +73,21 @@ public final class DetectionUtil {
             calibrationData.meanDistortionCoefficients(),
             optimalMatrix);
 
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                dgbImageMat,
+                "before_distortion"
+            );
+            DetectionUtil.debugShowImage(
+                dgbUndistortedImageMat,
+                "after_distortion"
+            );
+        }
         // resize
-        Imgproc.resize(dgbImageMat, dgbImageMat, 
-            new Size(
-                dgbImageMat.width()*cameraParameter.scaleFactor(), 
-                dgbImageMat.height()*cameraParameter.scaleFactor()));        
         Imgproc.resize(dgbUndistortedImageMat, dgbUndistortedImageMat, 
             new Size(
                 dgbUndistortedImageMat.width()*cameraParameter.scaleFactor(), 
                 dgbUndistortedImageMat.height()*cameraParameter.scaleFactor()));
-        HighGui.imshow("before_dist", dgbImageMat);
-        HighGui.waitKey(20);
-        HighGui.destroyWindow("before_dist");
-        HighGui.imshow("after_dist", dgbUndistortedImageMat);
-        HighGui.waitKey(20);
-        HighGui.destroyWindow("after_dist");
-        
         return dgbUndistortedImageMat;
     } 
 
@@ -101,14 +113,240 @@ public final class DetectionUtil {
     }
 
     /**
+     * Detects aruco markers of a given {@link Dictionary} in an undistorted {@link Mat} image
+     * and crops the image roi to the given {@link Size}.
+     * 
+     * @param undistortedImage {@link Mat}
+     * @param arucoDictionary  {@link Dictionary} // supports only Aruco.DICT_6X6_250
+     * @param roiWidth // 1920
+     * @param roiHeight // 1080
+     * @param useOuterBoundary // true
+     * @param drawMarkers {@link Size} // false
+     * @param debug // false
+     * 
+     * @return Returns ROI {@link Mat} extract from aruco markers
+     */
+    public static Mat extractArucoROI(
+        Mat undistortedImage,
+        int arucoDictionary,
+        int roiWidth,
+        int roiHeight,
+        boolean useOuterBoundary,
+        boolean drawMarkers,
+        boolean debug) {
+
+        final var markerCorners = new ArrayList<Mat>();
+        final var markerIds = new Mat();
+        final var rejectedImagePoints = new ArrayList<Mat>();
+
+        final var dict = Aruco.getPredefinedDictionary(arucoDictionary); 
+        final var detectorParams = DetectorParameters.create();
+        Aruco.detectMarkers(
+            undistortedImage,
+            dict,
+            markerCorners,
+            markerIds,
+            detectorParams,
+            rejectedImagePoints
+        );
+        LOGGER.info("aruco detected marker: " 
+            + "\nmarkerCorners=" + markerCorners.size() + "; corners[0]=" + markerCorners.get(0).dump() 
+            + "\nmarkerIds=" + markerIds.dump() + "; rows=" + markerIds.rows() + "; cols=" + markerIds.cols() 
+            + "\nrejections=" + rejectedImagePoints.size()
+        );
+        if (drawMarkers) {
+            Aruco.drawDetectedMarkers(
+                undistortedImage,
+                markerCorners,
+                markerIds,
+                new Scalar(0,0, 161)
+            ); 
+        }
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                undistortedImage, 
+                "aruco");
+        }
+
+        // test cropping the image based on the inner corners
+        // of aruco markers
+        // check if all corners are present in image
+        // debug 
+        // System.out.println("Press any key to continue.....");
+        // scanner.nextLine();
+        var markerIdsAsString = markerIds.dump();
+        // this regex removes [] newline tab space from a given string
+        markerIdsAsString = markerIdsAsString.replaceAll("[\\[\\]\n\t ]", "");
+        final var expectedMarkerIds = java.util.List.of("0","1", "2", "3");
+        LOGGER.info("expected markerIds: " + expectedMarkerIds);
+        final var entries = Arrays.asList(markerIdsAsString.split(";"));
+        LOGGER.info("actual markerIds: " + entries);
+        final var validMarkerIds = markerIds.cols() == 1 && markerIds.rows() == 4 
+            && expectedMarkerIds.containsAll(entries);   
+        if (validMarkerIds) {
+            // point1
+            var index = useOuterBoundary 
+                ? entries.indexOf("0")
+                : entries.indexOf("2");
+            final var point1 = markerCorners.get(index)
+                .get(0, 0);
+            // point2
+            index = useOuterBoundary 
+                ? entries.indexOf("1")
+                : entries.indexOf("3");
+            final var point2 = markerCorners.get(index)
+                .get(0, 1);
+            // point3
+            index = useOuterBoundary 
+                ? entries.indexOf("2")
+                : entries.indexOf("0");
+            final var point3 = markerCorners.get(index)
+                .get(0, 2);
+            // point4
+            index = useOuterBoundary 
+                ? entries.indexOf("3")
+                : entries.indexOf("1");
+            final var point4 = markerCorners.get(index)
+                .get(0, 3);
+            // homopgraphy
+            final var sourcePoints = new MatOfPoint2f();
+            sourcePoints.fromArray(
+                new Point(point1[0], point1[1]), 
+                new Point(point2[0], point2[1]),
+                new Point(point3[0], point3[1]),
+                new Point(point4[0], point4[1])
+            );
+            LOGGER.info("Source points for homography: " + sourcePoints.dump());
+            final var destPoints = new MatOfPoint2f();
+            destPoints.fromArray(
+                new Point(0, 0),
+                new Point(roiWidth, 0),
+                new Point(roiWidth, roiHeight),
+                new Point(0, roiHeight)
+            );
+            final var homoMat = Calib3d.findHomography(
+                sourcePoints,
+                destPoints
+            );
+            LOGGER.info("Homography: " + homoMat.dump());
+
+            // warp perspective
+            final var warpPerspectiveImg = new Mat();
+            Imgproc.warpPerspective(
+                undistortedImage,
+                warpPerspectiveImg,
+                homoMat,
+                new Size(roiWidth, roiHeight)
+            );
+            if (debug) {
+                DetectionUtil.debugShowImage(
+                    warpPerspectiveImg, 
+                    "warp");
+            }
+            if (!useOuterBoundary) {
+                final var rotatedImg = new Mat(); 
+                Core.rotate(
+                    warpPerspectiveImg,
+                    rotatedImg,  
+                    Core.ROTATE_180);
+                return rotatedImg;
+            }
+            return warpPerspectiveImg;
+        } else {
+            LOGGER.warning("ArUco marker ids invalid: " 
+                + markerIds.dump() 
+                + "; rows=" + markerIds.rows() 
+                + "; cols=" + markerIds.cols());
+        }
+        return null;
+    }
+
+    public static void findContours(Mat roi, boolean debug) {
+        // make roi gray to improve detection
+        final var gray = new Mat();
+        Imgproc.cvtColor(roi, gray, Imgproc.COLOR_BGR2GRAY);        
+
+        // apply gaussian filter to improve detection
+        final var blurred = new Mat();
+        Imgproc.GaussianBlur(
+            gray,
+            blurred,
+            new Size(11, 11),
+            1
+        );
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                blurred, 
+                "contour_gauss");
+        }
+        
+        // apply canny filter to improve detection
+        final var edges = new Mat();
+        Imgproc.Canny(
+            blurred,
+            edges,
+            25,
+            75
+        );
+        final var kernel = Mat.ones(3, 3, CvType.CV_64FC1);
+        final var edges_dilate = new Mat();
+        Imgproc.dilate(
+            edges,
+            edges_dilate,
+            kernel,
+            new Point(),
+            1
+        );
+        final var edges_erode = new Mat();
+        Imgproc.erode(
+            edges_dilate,
+            edges_erode,
+            kernel,
+            new Point(),
+            1
+        );
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                edges_erode, 
+                "canny_erode");
+        }
+
+        // finally findContours
+        final var image = edges_erode.clone();
+        final var contours = new ArrayList<MatOfPoint>();
+        final var hierarchy = new Mat();
+        Imgproc.findContours(    
+            image,
+            contours,
+            hierarchy,
+            Imgproc.RETR_EXTERNAL,
+            Imgproc.CHAIN_APPROX_SIMPLE 
+        );
+        LOGGER.info("Found contours: " + contours.size());
+        Imgproc.drawContours(
+            roi,
+            contours,
+            -1,
+            // new Scalar(154, 1, 254), // pink
+            new Scalar(31, 240, 255), // yellow
+            2
+        );
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                roi, 
+                "contour");
+        }
+    }
+
+    /**
      * Uses {@link HighGui.imshow} to present an image resized into 640x480 pixels.
      * for debugging purposes.
      * 
      * @param matImage
      * @param windowName
      */
-    private static void debugShowImage(final Mat matImage, final String windowName) {
-        final Size dSize = new Size(640, 480);
+    public static void debugShowImage(final Mat matImage, final String windowName) {
+        final Size dSize = new Size(1280, 720);
         final Mat matResized = new Mat();
         Imgproc.resize(matImage, matResized, dSize);
         HighGui.imshow(windowName, matResized);
