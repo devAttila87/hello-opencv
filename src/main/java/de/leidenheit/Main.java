@@ -1,9 +1,14 @@
 package de.leidenheit;
 
 import org.opencv.aruco.*;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Scalar;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgcodecs.Imgcodecs;
+import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 
 import static org.opencv.videoio.Videoio.CAP_DSHOW;
@@ -166,16 +171,55 @@ public class Main {
                         false, 
                         false);
                     if (roiImage != null) {
-                        /*
-                        DetectionUtil.debugShowImage(
-                            roiImage, 
-                            "roi");
-                        */
                         // contour detection in ROI image
-                        DetectionUtil.findContours(
-                            roiImage,
-                            true
+                        // final var contourParamater = ContourParameter.defaultParameter();
+                        final var contourParamater = new ContourParameter(
+                            11,
+                            25,
+                            75,
+                            1,
+                            1,
+                            100,
+                            0.01,
+                            new Scalar(31, 240, 255),
+                            3
                         );
+                        final var contourDataList = DetectionUtil.findContours(
+                            roiImage,
+                            contourParamater,
+                            false
+                        );
+                        // TODO fit ellipse
+                        for (var contourData : contourDataList) {
+                            if ( (200_000 / 4) < contourData.area() 
+                                && (1_000_000 / 4) > contourData.area()) {
+                                    LOGGER.info("ContourData:"  
+                                    + " length=" + contourData.approxSize() 
+                                    + "; area=" + contourData.area());
+                                    
+                                    final var contour2f = new MatOfPoint2f(); 
+                                    contourData.contour()
+                                        .convertTo(contour2f, CvType.CV_32FC1);
+                                    final var rotatedRect = 
+                                        Imgproc.fitEllipse(
+                                            contour2f);
+                                    
+                                    Imgproc.ellipse(
+                                        roiImage,
+                                        rotatedRect,
+                                        new Scalar(240, 1, 255),
+                                        3
+                                    );
+                                    DetectionUtil.debugShowImage(
+                                        roiImage, 
+                                        "ellipse");
+                                    
+                                    // debug
+                                    System.out.println("Press any key to continue.....");
+                                    scanner.nextLine();
+                                        
+                            }
+                        }
                     }
                     // debug 
                     System.out.println("Press any key to continue.....");

@@ -21,6 +21,7 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.JPanel;
@@ -261,7 +262,21 @@ public final class DetectionUtil {
         return null;
     }
 
-    public static void findContours(Mat roi, boolean debug) {
+    /**
+     * Finds contours in a given ROI {@link Mat}.
+     * 
+     * @param roi   {@link Mat}
+     * @param contourParamater {@link ContourParameter}
+     * @param debug
+     * @return Returns a list of {@link MatOfPoint} containing found contours.
+     */
+    public static List<ContourData> findContours(
+        Mat roi, 
+        ContourParameter contourParamater, 
+        boolean debug) {
+
+        final var contourDataList = new ArrayList<ContourData>();
+
         // make roi gray to improve detection
         final var gray = new Mat();
         Imgproc.cvtColor(roi, gray, Imgproc.COLOR_BGR2GRAY);        
@@ -271,7 +286,7 @@ public final class DetectionUtil {
         Imgproc.GaussianBlur(
             gray,
             blurred,
-            new Size(11, 11),
+            new Size(contourParamater.gaussFactor(), contourParamater.gaussFactor()),
             1
         );
         if (debug) {
@@ -285,9 +300,8 @@ public final class DetectionUtil {
         Imgproc.Canny(
             blurred,
             edges,
-            25,
-            75
-        );
+            contourParamater.cannyThresholdLow(),
+            contourParamater.cannyThresholdHigh());
         final var kernel = Mat.ones(3, 3, CvType.CV_64FC1);
         final var edges_dilate = new Mat();
         Imgproc.dilate(
@@ -295,7 +309,7 @@ public final class DetectionUtil {
             edges_dilate,
             kernel,
             new Point(),
-            1
+            contourParamater.dilateIterations()
         );
         final var edges_erode = new Mat();
         Imgproc.erode(
@@ -303,7 +317,7 @@ public final class DetectionUtil {
             edges_erode,
             kernel,
             new Point(),
-            1
+            contourParamater.erodeIterations()
         );
         if (debug) {
             DetectionUtil.debugShowImage(
@@ -322,20 +336,66 @@ public final class DetectionUtil {
             Imgproc.RETR_EXTERNAL,
             Imgproc.CHAIN_APPROX_SIMPLE 
         );
-        LOGGER.info("Found contours: " + contours.size());
+
+        final var areaThreshold = contourParamater.areaThreshold();
+        final var finalContours = new ArrayList<MatOfPoint>(); // TODO own type: contour, boundingBox, area, perimeter
+        for (MatOfPoint contour : contours) {
+            final var area = Imgproc.contourArea(
+                contour);
+            if (area > areaThreshold) {
+                final var contour2f = new MatOfPoint2f(); 
+                contour.convertTo(contour2f, CvType.CV_32FC1);
+                final var perimeter = Imgproc.arcLength(
+                    contour2f, 
+                    true);
+
+                final var epsilon = contourParamater.epsilon();
+                final var approximatedCurve = new MatOfPoint2f(); 
+                Imgproc.approxPolyDP(
+                    contour2f, 
+                    approximatedCurve, 
+                    epsilon * perimeter, 
+                    true);
+
+                final var boundingBoxRect = Imgproc.boundingRect(approximatedCurve);
+
+                final var data = new ContourData(
+                    approximatedCurve.elemSize(),
+                    area,
+                    approximatedCurve,
+                    boundingBoxRect,
+                    contour
+                );
+                contourDataList.add(data);
+            }
+        }
+
         Imgproc.drawContours(
             roi,
             contours,
             -1,
-            // new Scalar(154, 1, 254), // pink
-            new Scalar(31, 240, 255), // yellow
-            2
+            contourParamater.drawColorBGRA(),
+            contourParamater.drawThickness()
         );
         if (debug) {
             DetectionUtil.debugShowImage(
                 roi, 
-                "contour");
+                "contours_before_area_peri_approx_bb");
+
+            final var modContours = roi.clone();     
+            // filtered contours
+            Imgproc.drawContours(
+                modContours,
+                finalContours,
+                -1,
+                contourParamater.drawColorBGRA(),
+                contourParamater.drawThickness()
+            );
+            DetectionUtil.debugShowImage(
+                modContours, 
+                "contours_after_area_peri_approx_bb");
         }
+        return contourDataList;
     }
 
     /**
