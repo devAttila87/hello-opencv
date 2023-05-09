@@ -5,6 +5,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
@@ -184,7 +185,7 @@ public class Main {
                         1080,
                         true, // use true for more reliable extraction of a ROI 
                         false, 
-                        false); 
+                        true); 
                     if (roiImage != null) {
                         // resize to 600x600 improved detection performance
                         Imgproc.resize(
@@ -197,16 +198,18 @@ public class Main {
                         /*
                         final var contourParamater = ContourParameter.defaultParameter();
                         */
+                        /*
+                        */
                         final var contourParamater = new ContourParameter(
-                            11,
+                            3,
+                            50,
                             100,
-                            150,
                             1,
                             1,
                             100,
                             0.01,
                             new Scalar(31, 240, 255),
-                            3
+                            1
                         );
                         final var contourDataList = DetectionUtil.findContours(
                             roiImage,
@@ -245,14 +248,153 @@ public class Main {
                                         dbgImage,
                                         rotatedRect,
                                         new Scalar(240, 1, 255),
-                                        3
+                                        1
                                     );
+
+                                    // TODO generate polar coordinate system using the found ellipse
+                                    final var polarCoordSysImage = roiImage.clone();
+
+                                    // draw bounding box of ellipse
+                                    LOGGER.info("ellipse bounding rect: " + rotatedRect.boundingRect());
+                                    Imgproc.rectangle(
+                                        polarCoordSysImage,
+                                        rotatedRect.boundingRect(),
+                                        new Scalar(240, 1, 255),
+                                        1
+                                    );
+                                    
+                                    // outer ellipse
+                                    Imgproc.ellipse(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        new Scalar(40,240,255),
+                                        1
+                                    );
+                                    // center
+                                    /*
+                                    Imgproc.drawMarker(
+                                        polarCoordSysImage, 
+                                        rotatedRect.center,
+                                        new Scalar(40,240,255),
+                                        Imgproc.MARKER_CROSS, 
+                                        600
+                                    );
+                                     */
+
+                    /*
+                        * Dartboard ellipse radians 
+                        *  - outer double              = 170 mm
+                        *  - inner double              = 170 mm - 8 mm
+                        *                                  diameter in percent [95.2941176470%]
+                        *  - outer triple              = 107 mm
+                        *                                  diameter in percent [62.9411764705f%]
+                        *  - inner triple              = 107 mm - 8 mm
+                        *                                  diameter in percent [58.2352941176%]
+                        *  - single bull               = center.x + (31,8 mm / 2) 
+        *                                                   diameter in percent [7,05099778270%]
+                        *  - bull's eye                = center.x + (12,7 mm / 2) 
+                        *                                  diameter in percent [3.73529411764%]
+                        */
+
+
+                                    final float FACTOR_BULLSEYE = 3.73529411764f / 2; // factor of the bull field in a darts board; divided by two since we are in the first quadrant
+                                    final float FACTOR_BULL = 9.35294117647f / 2;
+                                    final float FACTOR_INNER_TRIPLE = 58.2352941176f;
+                                    final float FACTOR_OUTER_TRIPLE = 62.9411764705f;
+                                    final float FACTOR_INNER_DOUBLE = 95.2941176470f;
+                                    final int origin = (int) rotatedRect.center.x;  
+                                    
+                                    // TODO bullseye limit                                    
+                                    final var radiusBullsEyeLimit = 
+                                        (int) (origin * (FACTOR_BULLSEYE / 100));
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusBullsEyeLimit,
+                                        600,
+                                        0,
+                                        0,
+                                        new Scalar(40,240,255)
+                                    );
+                                    
+                                    // TODO inner bull limit 
+                                    final var radiusBullLimit = 
+                                        (int) (origin * (FACTOR_BULL / 100));
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusBullLimit,
+                                        600,
+                                        0,
+                                        0,
+                                        new Scalar(40, 240, 255)
+                                    ); 
+
+                                    // TODO inner triple limit 
+                                    final var radiusInnerTripleLimit = 
+                                        (int) (170 * (FACTOR_INNER_TRIPLE / 100));
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusInnerTripleLimit,
+                                        600,
+                                        0, 
+                                        0,
+                                        new Scalar(255, 255, 255)
+                                    );
+
+                                    // TODO outer triple limit
+                                    final var radiusOuterTripleLimit = 
+                                        (int) (170 * (FACTOR_OUTER_TRIPLE / 100));
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusOuterTripleLimit,
+                                        600,
+                                        0, 
+                                        0,
+                                        new Scalar(255, 255, 255)
+                                    );
+
+                                    // TODO inner double limit
+                                    final var radiusInnerDoubleLimit = 
+                                        (int) (170 * (FACTOR_INNER_DOUBLE / 100));
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusInnerDoubleLimit,
+                                        600,
+                                        0,
+                                        0,
+                                        new Scalar(250, 250, 250)
+                                    ); 
+
+                                    // TODO outer double limit
+                                    final var radiusOuterDoubleLimit = 170;
+                                    DetectionUtil.drawPolarCoordinateFactorXAxis(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        radiusOuterDoubleLimit,
+                                        600,
+                                        0,
+                                        0,
+                                        new Scalar(250, 250, 250)
+                                    ); 
+
+
+
                                     DetectionUtil.debugShowImage(
-                                        dbgImage, 
-                                        "ellipse_" + 
-                                        imagePath.substring(
+                                        polarCoordSysImage,
+                                        "polar_" + imagePath.substring(
                                             imagePath.lastIndexOf("/") + 1,
                                             imagePath.length()));
+
+
+
+
+
+
+
                             } else {
                                 LOGGER.info("Ignored ellipse: (" 
                                     + imagePath.substring(

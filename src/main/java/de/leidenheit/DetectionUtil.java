@@ -6,6 +6,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
+import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
@@ -400,6 +402,36 @@ public final class DetectionUtil {
                 "contours_after_area_peri_approx_bb");
         }
         return contourDataList;
+    }
+
+    public static void drawPolarCoordinateFactorXAxis(
+        Mat ellipseImage, 
+        RotatedRect ellipseRotatedRectangle, 
+        int xOffsetFromOrigin,
+        int drawSize,
+        int xOffset,
+        int yOffset,
+        Scalar colorScalar) {
+        
+        /*
+        final var radius = (int) ellipseRotatedRectangle.center.x 
+            + (ellipseRotatedRectangle.center.x * ((diameterFactor / 2) / 100));
+        */
+        
+        final var radius = (int) ellipseRotatedRectangle.center.x + xOffsetFromOrigin + xOffset;
+        LOGGER.info("LIMIT:"
+            +"\nradius="+radius
+            +"\nrotatedRectSize="+ellipseRotatedRectangle.size
+            +"\nrotatedRectCenter="+ellipseRotatedRectangle.center
+        );
+        Imgproc.drawMarker(
+            ellipseImage,
+            new Point(radius, (int) ellipseRotatedRectangle.center.y + yOffset),
+            // new Scalar(240, 40, 240),
+            colorScalar,
+            Imgproc.MARKER_CROSS,
+            drawSize
+        );
     }
 
     /**
