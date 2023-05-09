@@ -272,7 +272,8 @@ public final class DetectionUtil {
      */
     public static List<ContourData> findContours(
         Mat roi, 
-        ContourParameter contourParamater, 
+        ContourParameter contourParamater,
+        boolean drawContours, 
         boolean debug) {
 
         final var contourDataList = new ArrayList<ContourData>();
@@ -289,6 +290,7 @@ public final class DetectionUtil {
             new Size(contourParamater.gaussFactor(), contourParamater.gaussFactor()),
             1
         );
+
         if (debug) {
             DetectionUtil.debugShowImage(
                 blurred, 
@@ -370,13 +372,15 @@ public final class DetectionUtil {
             }
         }
 
-        Imgproc.drawContours(
-            roi,
-            contours,
-            -1,
-            contourParamater.drawColorBGRA(),
-            contourParamater.drawThickness()
-        );
+        if (drawContours) {
+            Imgproc.drawContours(
+                roi,
+                contours,
+                -1,
+                contourParamater.drawColorBGRA(),
+                contourParamater.drawThickness()
+            );
+        }
         if (debug) {
             DetectionUtil.debugShowImage(
                 roi, 
