@@ -2,29 +2,19 @@ package de.leidenheit;
 
 import org.opencv.aruco.*;
 import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
-import org.opencv.core.Point;
-import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
-import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 
-import static org.opencv.videoio.Videoio.CAP_DSHOW;
-import static org.opencv.videoio.Videoio.CAP_PROP_FPS;
-import static org.opencv.videoio.Videoio.CAP_PROP_FRAME_HEIGHT;
-import static org.opencv.videoio.Videoio.CAP_PROP_FRAME_WIDTH;
-
 import javax.swing.*;
 
-import java.awt.*;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.rmi.UnexpectedException;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -108,6 +98,19 @@ public class Main {
         return () -> {
             // debug
             Scanner scanner = new Scanner(System.in);
+
+            // polar coordiantes singleton
+            try {
+                final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
+                LOGGER.info("polar for 31° -> " + polarCoordValueAngleRange.findValueByAngle(31));
+                LOGGER.info("polar for 27° -> " + polarCoordValueAngleRange.findValueByAngle(27));
+                LOGGER.info("polar for 9° -> " + polarCoordValueAngleRange.findValueByAngle(9));
+                LOGGER.info("polar for 156° -> " + polarCoordValueAngleRange.findValueByAngle(156));
+                LOGGER.info("polar for 359.009° -> " + polarCoordValueAngleRange.findValueByAngle(359.009));
+            } catch (UnexpectedException e) {
+                // ignored
+            }
+            scanner.nextLine();
 
             final var resourceProvider = new ResourceProvider();
             final var cameraParameter = CameraParameter.defaultParameter();
