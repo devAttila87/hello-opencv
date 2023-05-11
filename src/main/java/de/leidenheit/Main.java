@@ -268,19 +268,9 @@ public class Main {
                                 final var rotatedRect = 
                                     Imgproc.fitEllipse(
                                         contour2f);
-                                // LOGGER.info("ellipse: " + rotatedRect.toString());
-                                /*
-                                Imgproc.ellipse(
-                                    dbgImage,
-                                    rotatedRect,
-                                    new Scalar(240, 1, 255),
-                                    1
-                                );
-                                */
 
-                                // TODO generate polar coordinate system using the found ellipse
+                                // generate polar coordinate system using the found ellipse
                                 final var polarCoordSysImage = roiImage.clone();
-
                                 // draw bounding box of ellipse
                                 LOGGER.info("ellipse bounding rect: " + rotatedRect.boundingRect());
                                 Imgproc.rectangle(
@@ -289,7 +279,6 @@ public class Main {
                                     new Scalar(240, 1, 255),
                                     1
                                 );
-                                
                                 // outer ellipse
                                 Imgproc.ellipse(
                                     polarCoordSysImage,
@@ -305,131 +294,12 @@ public class Main {
                                     Imgproc.MARKER_CROSS, 
                                     600
                                 );
-
-                /*
-                    * Dartboard ellipse radians 
-                    *  - outer double              = 170 mm -> rect.x / 2
-                    *  - inner double              = 170 mm - 8 mm -> (rect.x / 2) - ((rect.x / 2) * 4.70588235294f%)
-                    *                                  diameter in percent [95.2941176470%]
-                    *  - outer triple              = 107 mm -> (rect.x / 2) - ((rect.x / 2) * 62.9411764705f%)
-                    *                                  diameter in percent [62.9411764705f%]
-                    *  - inner triple              = 107 mm - 8 mm -> (rect.x / 2) - ((rect.x / 2) * 58.2352941176f%) - ((rect.x / 2) * 4.70588235294f%)
-                    *                                  diameter in percent [58.2352941176%] 
-                    *  - single bull               = center.x + (31,8 mm / 2) 
-    *                                                   diameter in percent [7,05099778270%]
-                    *  - bull's eye                = center.x + (12,7 mm / 2) 
-                    *                                  diameter in percent [3.73529411764%]
-
-
-                        assumptions:
-                            - dartsboard generally has a size of 451mm, including the outer black part
-                                -> we will use the width of the detected ellipse instead...
-
-                            - 37.6940133037% of that is the radius of each quadrant
-                                -> defines outer double
-                            - 23,7250554323% of that is the radius of a quadrants triple multiplier
-                                -> defines outer triple
-                            - 1,77383592017% of that is the radius of each quadrants multiplier field size
-                                -> defines multiplier
-                            - 7,05099778270% of that is the diameter of outer bull
-                                -> definies outer bull
-                            - 2,815964523285 of that is the diameter of bullseye
-                                -> definies outer bullseye
-
-                            // TODO test assumptions
-                    */
-                                final float FACTOR_BULLSEYE = 2.815964523285f / 2; // factor of the bull field in a darts board; divided by two since we are in the first quadrant
-                                final float FACTOR_BULL = 7.05099778270f / 2;
-
-                                final float FACTOR_MULTIPLYER = 1.77383592017f;
-
-                                final float FACTOR_QUADRANT_OUTER_TRIPLE = 23.7250554323f;
-                                final float FACTOR_QUADRANT_INNER_TRIPLE = FACTOR_QUADRANT_OUTER_TRIPLE - FACTOR_MULTIPLYER;
-
-                                final float FACTOR_QUADRANT_OUTER_DOUBLE = 37.6940133037f;
-                                final float FACTOR_QUADRANT_INNER_DOUBLE = FACTOR_QUADRANT_OUTER_DOUBLE - FACTOR_MULTIPLYER;
-
-                                // bullseye limit                                    
-                                final var radiusBullsEyeLimit = 
-                                    (int) (rotatedRect.size.width * (FACTOR_BULLSEYE / 100));
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    radiusBullsEyeLimit,
-                                    50,
-                                    0,
-                                    0,
-                                    new Scalar(0,0,139)
-                                );
-                                
-                                // inner bull limit 
-                                final var radiusBullLimit = 
-                                    (int) (rotatedRect.size.width * (FACTOR_BULL / 100));
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    radiusBullLimit,
-                                    50,
-                                    0,
-                                    0,
-                                    new Scalar(250, 250, 250)
-                                ); 
-
-                                // TODO inner triple limit  
-                                final var radiusInnerTripleLimit = (int) 
-                                    // (rectRadius * 
-                                    (rotatedRect.size.width *
-                                        (FACTOR_QUADRANT_INNER_TRIPLE / 100));
-                                    // (int) ((rotatedRect.size.width / 2) * (FACTOR_INNER_TRIPLE / 100));
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    radiusInnerTripleLimit,
-                                    50,
-                                    0, 
-                                    0,
-                                    new Scalar(0, 0, 139)
-                                );
-
-                                // TODO outer triple limit
-                                final var radiusOuterTripleLimit = (int) 
-                                    //(rectRadius *
-                                    (rotatedRect.size.width * 
-                                        (FACTOR_QUADRANT_OUTER_TRIPLE / 100));
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    radiusOuterTripleLimit,
-                                    50,
-                                    0, 
-                                    0,
-                                    new Scalar(255, 255, 255)
-                                );
-
-                                // TODO inner double limit
-                                final var radiusInnerDoubleLimit = 
-                                    (int) (rotatedRect.size.width * (FACTOR_QUADRANT_INNER_DOUBLE / 100));
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    radiusInnerDoubleLimit,
-                                    50,
-                                    0,
-                                    0,
-                                    new Scalar(0, 0, 139)
-                                ); 
-
-                                // TODO outer double limit
-                                DetectionUtil.drawPolarCoordinateFactorXAxis(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    (int) (rotatedRect.size.width * (FACTOR_QUADRANT_OUTER_DOUBLE / 100)),
-                                    50,
-                                    0,
-                                    0,
-                                    new Scalar(250, 250, 250)
-                                ); 
-
+                                final var limits = DetectionUtil.determineDartboardSectorLimits(
+                                    polarCoordSysImage, 
+                                    rotatedRect, 
+                                    true);
+                                LOGGER.info("Limits: " + limits);
+                                // debug
                                 DetectionUtil.debugShowImage(
                                     polarCoordSysImage,
                                     "polar_" + imagePath.substring(

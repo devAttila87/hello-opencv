@@ -419,17 +419,7 @@ public final class DetectionUtil {
         int yAdjustment,
         Scalar colorScalar) {
         
-        /*
-        final var radius = (int) ellipseRotatedRectangle.center.x 
-            + (ellipseRotatedRectangle.center.x * ((diameterFactor / 2) / 100));
-        */
-        
         final var radius = (int) ellipseRotatedRectangle.center.x + xOffsetFromOrigin + xAdjustment;
-        LOGGER.info("LIMIT:"
-            +"\nradius="+radius
-            +"\nrotatedRectSize="+ellipseRotatedRectangle.size
-            +"\nrotatedRectCenter="+ellipseRotatedRectangle.center
-        );
         Imgproc.drawMarker(
             ellipseImage,
             new Point(radius, (int) ellipseRotatedRectangle.center.y + yAdjustment),
@@ -454,6 +444,93 @@ public final class DetectionUtil {
         HighGui.imshow(windowName, matResized);
         HighGui.waitKey(20);
         HighGui.destroyWindow(windowName);
+    }
+
+    /**
+     * Returns the limits of the basic dartboard sectors based on calculation factors 
+     * applied to a given dartboard ellipse.
+     * 
+     * @param ellipseImage {@link Mat}
+     * @param ellipseBoundary {@link RotatedRect}
+     * @param debug
+     * @return {@link DartboardSectorLimits}
+     */
+    public static DartboardSectorLimits determineDartboardSectorLimits(
+        Mat ellipseImage, 
+        RotatedRect ellipseBoundary, 
+        boolean debug) {
+
+        final var width = ellipseBoundary.size.width;
+        final var radiusBullsEyeLimit = (int) (width * (DartboardRadianFactor.BULLSEYE / 100));
+        final var radiusBullLimit = (int) (width * (DartboardRadianFactor.BULL / 100));
+        final var radiusInnerTripleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_INNER_TRIPLE / 100));
+        final var radiusOuterTripleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_OUTER_TRIPLE / 100));
+        final var radiusInnerDoubleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_INNER_DOUBLE / 100));
+        final var radiusOuterDoubleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_OUTER_DOUBLE / 100));
+
+        if (debug) {
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusBullsEyeLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusBullLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusInnerTripleLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusOuterTripleLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusInnerDoubleLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis(
+                ellipseImage,
+                ellipseBoundary,
+                radiusOuterDoubleLimit,
+                100,
+                0,
+                0,
+                new Scalar(0,0,139)
+            );
+        }
+        return new DartboardSectorLimits(
+            radiusBullsEyeLimit, 
+            radiusBullLimit, 
+            radiusInnerTripleLimit, 
+            radiusOuterTripleLimit, 
+            radiusInnerDoubleLimit, 
+            radiusOuterDoubleLimit);
     }
 
     private DetectionUtil() {
