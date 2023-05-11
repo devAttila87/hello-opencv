@@ -13,17 +13,17 @@ public record CameraParameter(
      * - camera resolution at 1080p 
      * - 54 corners in calibration chessboard pattern
      * - 0.5 scaling factor
-     * - 30mm square size 
+     * - 40mm square size 
      *
      * @return {@link CameraParameter}
      */
     public static CameraParameter defaultParameter() {
         return new CameraParameter(
             1920, 
-            1080, 
+            1446, 
             9, 
             6, 
-            30d, 
+            40d, 
             0.5d);
     } 
 }

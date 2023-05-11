@@ -6,7 +6,6 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
 import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
-import org.opencv.core.Rect;
 import org.opencv.core.RotatedRect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
@@ -61,8 +60,8 @@ public final class DetectionUtil {
         // LOGGER.info("\n#########\n\tCamera Matrix: " + mCameraMatrix.dump());
         // removes unwanted pixels from matrix and returns ROI
         final var optimalMatrix = Calib3d.getOptimalNewCameraMatrix(
-            calibrationData.meanMatrix(),
-            calibrationData.meanDistortionCoefficients(),
+            calibrationData.cameraMatrix(),
+            calibrationData.distortionCoefficients(),
             dgbImageMat.size(), 
             1, 
             dgbImageMat.size());
@@ -72,8 +71,8 @@ public final class DetectionUtil {
         Calib3d.undistort(
             dgbImageMat, 
             dgbUndistortedImageMat, 
-            calibrationData.meanMatrix(), 
-            calibrationData.meanDistortionCoefficients(),
+            calibrationData.cameraMatrix(), 
+            calibrationData.distortionCoefficients(),
             optimalMatrix);
 
         if (debug) {
@@ -306,22 +305,29 @@ public final class DetectionUtil {
             edges,
             contourParamater.cannyThresholdLow(),
             contourParamater.cannyThresholdHigh());
-        final var kernel = Mat.ones(3, 3, CvType.CV_64FC1);
+        
+        final var kernel = Imgproc.getStructuringElement(
+            Imgproc.MORPH_RECT, 
+            new Size(4, 4));
         final var edges_dilate = new Mat();
         Imgproc.dilate(
             edges,
             edges_dilate,
-            kernel,
+            kernel
+            /*, decreases quality of detection
             new Point(),
             contourParamater.dilateIterations()
+             */
         );
         final var edges_erode = new Mat();
         Imgproc.erode(
             edges_dilate,
             edges_erode,
-            kernel,
+            kernel
+            /*, decreases quality of detection
             new Point(),
-            contourParamater.erodeIterations()
+            contourParamater.erodeIterations() 
+            */
         );
         if (debug) {
             DetectionUtil.debugShowImage(
@@ -409,8 +415,8 @@ public final class DetectionUtil {
         RotatedRect ellipseRotatedRectangle, 
         int xOffsetFromOrigin,
         int drawSize,
-        int xOffset,
-        int yOffset,
+        int xAdjustment,
+        int yAdjustment,
         Scalar colorScalar) {
         
         /*
@@ -418,7 +424,7 @@ public final class DetectionUtil {
             + (ellipseRotatedRectangle.center.x * ((diameterFactor / 2) / 100));
         */
         
-        final var radius = (int) ellipseRotatedRectangle.center.x + xOffsetFromOrigin + xOffset;
+        final var radius = (int) ellipseRotatedRectangle.center.x + xOffsetFromOrigin + xAdjustment;
         LOGGER.info("LIMIT:"
             +"\nradius="+radius
             +"\nrotatedRectSize="+ellipseRotatedRectangle.size
@@ -426,7 +432,7 @@ public final class DetectionUtil {
         );
         Imgproc.drawMarker(
             ellipseImage,
-            new Point(radius, (int) ellipseRotatedRectangle.center.y + yOffset),
+            new Point(radius, (int) ellipseRotatedRectangle.center.y + yAdjustment),
             // new Scalar(240, 40, 240),
             colorScalar,
             Imgproc.MARKER_CROSS,

@@ -6,8 +6,8 @@ import org.opencv.core.Mat;
 import org.opencv.core.Core;
 
 public record CalibrationData(
-    Mat meanMatrix, 
-    Mat meanDistortionCoefficients, 
+    Mat cameraMatrix, 
+    Mat distortionCoefficients, 
     ArrayList<Mat> rVectors,
     ArrayList<Mat> tVectors,
     double avgReprojectionErrors) {
@@ -19,7 +19,7 @@ public record CalibrationData(
      * @return Returns true if valid, otherwise false. 
      */
     public boolean isCalibrationValid() {
-        return Core.checkRange(this.meanMatrix) 
-            && Core.checkRange(this.meanDistortionCoefficients);
+        return Core.checkRange(this.cameraMatrix) 
+            && Core.checkRange(this.distortionCoefficients);
     } 
 }
