@@ -179,8 +179,8 @@ public class Main {
                 );
 
                 // debug 
-                System.out.println("Press any key to continue.....");
-                scanner.nextLine();
+                // System.out.println("Press any key to continue.....");
+                // scanner.nextLine();
             }
 
             // distortion, ArUco region of interest and field detection
@@ -192,18 +192,18 @@ public class Main {
                     imagePath, 
                     cameraParameter,
                     calibrationData,
-                    true);
+                    false);
 
                 // aruco detection of undistorted image and extraction of ROI
                 LOGGER.info("trying to detect aruco markers in " + imagePath);
                 final var roiImage = DetectionUtil.extractArucoROI(
                     undistortedImage,
                     Aruco.DICT_6X6_250,
-                    600,
-                    600,
+                    960,
+                    960,
                     true, // use true for more reliable extraction of a ROI 
                     false, 
-                    true); 
+                    false); 
                 LOGGER.info(String.format("roi image size after extraction of ArUcos: %s", roiImage.size()));
                 if (roiImage != null) {
                     // contour detection in ROI image
@@ -225,7 +225,7 @@ public class Main {
                         roiImage,
                         contourParamater,
                         false,
-                        true
+                        false
                     );
 
                     // extract outer most ellipse
@@ -235,8 +235,8 @@ public class Main {
                             + " length=" + contourData.approxSize() 
                             + "; area=" + contourData.area());
                         */
-                        final var thresholdLow = 50_000;
-                        final var thresholdHigh = 250_000;
+                        final var thresholdLow = 100_000;
+                        final var thresholdHigh = 500_000;
                         final var withinThreshold = 
                             thresholdLow <= contourData.area() 
                             && thresholdHigh >= contourData.area();
@@ -271,7 +271,7 @@ public class Main {
                                 rotatedRect.center,
                                 new Scalar(50,50,50),
                                 Imgproc.MARKER_CROSS, 
-                                600
+                                960
                             );
                             final var limits = DetectionUtil.determineDartboardSectorLimits(
                                 polarCoordSysImage, 
