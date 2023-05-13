@@ -400,6 +400,7 @@ public final class DetectionUtil {
         return contourDataList;
     }
 
+    // TODO modify to support also angles
     public static void drawPolarCoordinateFactorXAxis(
         Mat ellipseImage, 
         RotatedRect ellipseRotatedRectangle, 
@@ -413,25 +414,6 @@ public final class DetectionUtil {
         Imgproc.drawMarker(
             ellipseImage,
             new Point(radius, (int) ellipseRotatedRectangle.center.y + yAdjustment),
-            colorScalar,
-            Imgproc.MARKER_CROSS,
-            drawSize
-        );
-    }
-
-    public static void drawPolarCoordinateFactorYAxis(
-        Mat ellipseImage, 
-        RotatedRect ellipseRotatedRectangle, 
-        int yOffsetFromOrigin,
-        int drawSize,
-        int xAdjustment,
-        int yAdjustment,
-        Scalar colorScalar) {
-        
-        final var radius = (int) ellipseRotatedRectangle.center.y + yOffsetFromOrigin + yAdjustment;
-        Imgproc.drawMarker(
-            ellipseImage,
-            new Point((int) ellipseRotatedRectangle.center.x + xAdjustment, radius),
             colorScalar,
             Imgproc.MARKER_CROSS,
             drawSize
@@ -541,6 +523,65 @@ public final class DetectionUtil {
             radiusOuterTripleLimit, 
             radiusInnerDoubleLimit, 
             radiusOuterDoubleLimit);
+    }
+
+    /**
+     * Determines the radius and angle from a given point relative to a given center point.
+     * 
+     * @param center {@link Point}
+     * @param point {@link Point}
+     * @return {@link double[radius, angle]}
+     */
+    public static double[] determineRadiusAndAngleFromPointRelativeToCenter(
+        final Point center, 
+        final Point point) {
+        
+        double radius = -1.0f; // error state
+        double angle = 0.0f;
+
+        if (center.x >= 0 && center.y >= 0 
+            && point.x >= 0 && point.y >= 0) {
+
+            radius = Math.sqrt(
+                Math.pow(point.x - center.x, 2)
+                + Math.pow(point.y - center.y, 2)
+            );
+            LOGGER.info(String.format("Determined radius=%s", radius));
+
+            if (point.y < center.y) {
+                // quadrant I
+                if (point.x < center.x) {
+                    LOGGER.info("Determining angle in quadrant I");
+                    // angle acos
+                    angle = Math.acos(Math.abs(point.y - center.y) / radius) + Math.PI / 2;
+                // quadrant II 
+                } else {
+                    LOGGER.info("Determining angle in quadrant II");
+                    // angle asin
+                    angle = Math.asin(Math.abs(point.y - center.y) / radius);
+                }
+            } else {
+                // quadrant III
+                if (point.x > center.x) {
+                    LOGGER.info("Determining angle in quadrant III");
+                    // angle acos
+                    angle = Math.acos(Math.abs(point.y - center.y) / radius) + Math.PI + Math.PI / 2;
+                } else {
+                    // quadrant IV
+                    LOGGER.info("Determining angle in quadrant IV");
+                    // angle asin
+                    angle = Math.asin(Math.abs(point.y - center.y) / radius) + Math.PI;
+                }
+            }
+            // convert radiant to degrees
+            angle = angle * (180 / Math.PI);
+            LOGGER.info(String.format("Determined angle=%s", angle));
+        } else {
+            LOGGER.info(String.format("Cannot determin angle an radius due to invalid input points: (%s)(%s)",
+                center, point));
+        }
+
+        return new double[]{radius, angle};
     }
 
     private DetectionUtil() {

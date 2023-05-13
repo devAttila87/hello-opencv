@@ -279,72 +279,60 @@ public class Main {
                                 true);
                             LOGGER.info("Limits: " + limits);
                             // debug
-                            DetectionUtil.debugShowImage(
-                                polarCoordSysImage,
-                                "polar_" + imagePath.substring(
-                                    imagePath.lastIndexOf("/") + 1,
-                                    imagePath.length())
-                            );
-                            // draw polar coordinate system
                             // LOGGER.info("continue?");
                             // scanner.nextLine();
 
-                            // polar coordiantes singleton
-                            try {
-                                final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
-                                LOGGER.info("polar for 31° -> " + polarCoordValueAngleRange.findValueByAngle(31));
-                                LOGGER.info("polar for 27° -> " + polarCoordValueAngleRange.findValueByAngle(27));
-                                LOGGER.info("polar for 9° -> " + polarCoordValueAngleRange.findValueByAngle(9));
-                                LOGGER.info("polar for 156° -> " + polarCoordValueAngleRange.findValueByAngle(156));
-                                LOGGER.info("polar for 359.009° -> " + polarCoordValueAngleRange.findValueByAngle(359.009));
-                                // draw polar coordinate system
-                                final var pointLeftFieldBoundary = new Point();
-                                final var pointRightFieldBoundary = new Point();
-                                for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
-                                    final double startAngle = entry.getKey().getMinValue();
-                                    final double endAngle = entry.getKey().getMaxValue();    
-                                    pointLeftFieldBoundary.x = (int) Math.round(
-                                        rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
-                                    pointLeftFieldBoundary.y = (int) Math.round(
-                                        rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
+                            // draw polar coordiantes from singleton
+                            final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
+                            final var pointLeftFieldBoundary = new Point();
+                            final var pointRightFieldBoundary = new Point();
+                            for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
+                                final double startAngle = entry.getKey().getMinValue();
+                                final double endAngle = entry.getKey().getMaxValue();    
+                                pointLeftFieldBoundary.x = (int) Math.round(
+                                    rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
+                                pointLeftFieldBoundary.y = (int) Math.round(
+                                    rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
 
-                                    pointRightFieldBoundary.x = (int) Math.round(
-                                        rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
-                                    pointRightFieldBoundary.y = (int) Math.round(
-                                        rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
+                                pointRightFieldBoundary.x = (int) Math.round(
+                                    rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
+                                pointRightFieldBoundary.y = (int) Math.round(
+                                    rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
 
-                                    LOGGER.info(String.format(
-                                        "drawLine for angles [%s][%s] to (%s,%s)", startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
-                                    Imgproc.line(
-                                        polarCoordSysImage,
-                                        rotatedRect.center,
-                                        pointLeftFieldBoundary,
-                                        new Scalar(200, 50, 200),
-                                        1
-                                    );
-                                    Imgproc.line(
-                                        polarCoordSysImage,
-                                        rotatedRect.center,
-                                        pointRightFieldBoundary,
-                                        new Scalar(200, 50, 200),
-                                        1
-                                    );
-                                    Imgproc.putText(
-                                        polarCoordSysImage,
-                                        String.valueOf(entry.getValue()),
-                                        pointRightFieldBoundary,
-                                        Imgproc.FONT_HERSHEY_DUPLEX,
-                                        0.3,
-                                        new Scalar(200, 50, 200)
-                                    );
-                                    // debug
-                                    // DetectionUtil.debugShowImage(polar, "polar_sys");
-                                    // LOGGER.info("press any...");
-                                    // scanner.nextLine();
-                                }
+                                LOGGER.info(String.format(
+                                    "drawLine for angles [%s][%s] to (%s,%s)", startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
+                                Imgproc.line(
+                                    polarCoordSysImage,
+                                    rotatedRect.center,
+                                    pointLeftFieldBoundary,
+                                    new Scalar(200, 50, 200),
+                                    1
+                                );
+                                Imgproc.line(
+                                    polarCoordSysImage,
+                                    rotatedRect.center,
+                                    pointRightFieldBoundary,
+                                    new Scalar(200, 50, 200),
+                                    1
+                                );
+                                Imgproc.putText(
+                                    polarCoordSysImage,
+                                    String.valueOf(entry.getValue()),
+                                    pointRightFieldBoundary,
+                                    Imgproc.FONT_HERSHEY_DUPLEX,
+                                    0.3,
+                                    new Scalar(200, 50, 200)
+                                );
+
+                                // debug
+                                DetectionUtil.determineRadiusAndAngleFromPointRelativeToCenter(
+                                    rotatedRect.center,
+                                    pointRightFieldBoundary);
+
+                                // debug
                                 DetectionUtil.debugShowImage(polarCoordSysImage, "polar_sys");
-                            } catch (UnexpectedException e) {
-                                // ignored
+                                LOGGER.info("press any...");
+                                scanner.nextLine();
                             }
                             LOGGER.info("continue?");
                             scanner.nextLine();
