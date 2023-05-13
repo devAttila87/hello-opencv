@@ -17,17 +17,6 @@ public class PolarCoordinateValueAngleRange  {
         return instance;
     }
 
-    public Integer findValueByAngle(double angle) throws UnexpectedException{
-        for (Map.Entry<ValueRange, Integer> entry :  valueAngleRangeMap.entrySet()) {
-            final var inRange = entry.getKey().minValue <= angle 
-                && entry.getKey().maxValue >= angle;
-            if (inRange) {
-                return entry.getValue();
-            }
-        }
-        throw new UnexpectedException(String.format("Cannot find angle %s in range set", angle));
-    }
-
     public PolarCoordinateValueAngleRange() {
         valueAngleRangeMap.put(new ValueRange(0.0001, 9.000), 6);
         valueAngleRangeMap.put(new ValueRange(9.0001, 27.000), 13);
@@ -52,7 +41,22 @@ public class PolarCoordinateValueAngleRange  {
         valueAngleRangeMap.put(new ValueRange(351.0001, 360.000), 6);
     }
 
-    private class ValueRange implements Comparable<ValueRange> {
+    public Integer findValueByAngle(double angle) throws UnexpectedException{
+        for (Map.Entry<ValueRange, Integer> entry :  valueAngleRangeMap.entrySet()) {
+            final var inRange = entry.getKey().minValue <= angle 
+                && entry.getKey().maxValue >= angle;
+            if (inRange) {
+                return entry.getValue();
+            }
+        }
+        throw new UnexpectedException(String.format("Cannot find angle %s in range set", angle));
+    }
+
+    public HashMap<ValueRange, Integer> getValueAngleRangeMap() {
+        return this.valueAngleRangeMap;
+    }
+
+    class ValueRange implements Comparable<ValueRange> {
         private double minValue;
         private double maxValue;
 

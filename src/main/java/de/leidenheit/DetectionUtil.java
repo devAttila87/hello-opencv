@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.JPanel;
+import javax.swing.text.WrappedPlainView;
 
 public final class DetectionUtil {
 
@@ -152,7 +153,7 @@ public final class DetectionUtil {
             rejectedImagePoints
         );
         LOGGER.info("aruco detected marker: " 
-            + "\nmarkerCorners=" + markerCorners.size() + "; corners[0]=" + markerCorners.get(0).dump() 
+            + "\nmarkerCorners=" + markerCorners.size() + "; \t\ncorners[0]=" + markerCorners.get(0).dump() + "; \t\ncorners[1]=" + markerCorners.get(1).dump() + "; \t\ncorners[2]=" + markerCorners.get(2).dump() + "; \t\ncorners[3]=" + markerCorners.get(3).dump() 
             + "\nmarkerIds=" + markerIds.dump() + "; rows=" + markerIds.rows() + "; cols=" + markerIds.cols() 
             + "\nrejections=" + rejectedImagePoints.size()
         );
@@ -163,11 +164,6 @@ public final class DetectionUtil {
                 markerIds,
                 new Scalar(0,0, 161)
             ); 
-        }
-        if (debug) {
-            DetectionUtil.debugShowImage(
-                undistortedImage, 
-                "aruco");
         }
 
         // test cropping the image based on the inner corners
@@ -222,23 +218,21 @@ public final class DetectionUtil {
             final var destPoints = new MatOfPoint2f();
             destPoints.fromArray(
                 new Point(0, 0),
-                new Point(roiWidth, 0),
-                new Point(roiWidth, roiHeight),
-                new Point(0, roiHeight)
+                new Point(roiWidth-1, 0),
+                new Point(roiWidth-1, roiHeight-1),
+                new Point(0, roiHeight-1)
             );
             final var homoMat = Calib3d.findHomography(
                 sourcePoints,
                 destPoints
             );
-            LOGGER.info("Homography: " + homoMat.dump());
-
             // warp perspective
-            final var warpPerspectiveImg = new Mat();
+            final var warpPerspectiveImg = new Mat(roiWidth, roiHeight, undistortedImage.type());
             Imgproc.warpPerspective(
                 undistortedImage,
                 warpPerspectiveImg,
                 homoMat,
-                new Size(roiWidth, roiHeight)
+                warpPerspectiveImg.size()
             );
             if (debug) {
                 DetectionUtil.debugShowImage(
@@ -390,10 +384,6 @@ public final class DetectionUtil {
             );
         }
         if (debug) {
-            DetectionUtil.debugShowImage(
-                roi, 
-                "contours_before_area_peri_approx_bb");
-
             final var modContours = roi.clone();     
             // filtered contours
             Imgproc.drawContours(
@@ -423,7 +413,25 @@ public final class DetectionUtil {
         Imgproc.drawMarker(
             ellipseImage,
             new Point(radius, (int) ellipseRotatedRectangle.center.y + yAdjustment),
-            // new Scalar(240, 40, 240),
+            colorScalar,
+            Imgproc.MARKER_CROSS,
+            drawSize
+        );
+    }
+
+    public static void drawPolarCoordinateFactorYAxis(
+        Mat ellipseImage, 
+        RotatedRect ellipseRotatedRectangle, 
+        int yOffsetFromOrigin,
+        int drawSize,
+        int xAdjustment,
+        int yAdjustment,
+        Scalar colorScalar) {
+        
+        final var radius = (int) ellipseRotatedRectangle.center.y + yOffsetFromOrigin + yAdjustment;
+        Imgproc.drawMarker(
+            ellipseImage,
+            new Point((int) ellipseRotatedRectangle.center.x + xAdjustment, radius),
             colorScalar,
             Imgproc.MARKER_CROSS,
             drawSize
@@ -438,11 +446,13 @@ public final class DetectionUtil {
      * @param windowName
      */
     public static void debugShowImage(final Mat matImage, final String windowName) {
-        final Size dSize = new Size(1280, 720);
-        final Mat matResized = new Mat();
-        Imgproc.resize(matImage, matResized, dSize);
-        HighGui.imshow(windowName, matResized);
-        HighGui.waitKey(20);
+        
+        // final Size dSize = new Size(960, 960);
+        // final Mat matResized = new Mat();
+        // Imgproc.resize(matImage, matResized, dSize);
+        // HighGui.imshow(windowName, matResized);
+        HighGui.imshow(windowName, matImage);
+        HighGui.waitKey(25);
         HighGui.destroyWindow(windowName);
     }
 

@@ -1,8 +1,5 @@
 package de.leidenheit;
 
-import java.util.TreeMap;
-import java.util.stream.DoubleStream;
-
 /**
  * Provides the factor values that represent the offical PDC 
  * radians for BullsEye, Bull, Triple and Double fields.

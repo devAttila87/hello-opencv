@@ -2,7 +2,9 @@ package de.leidenheit;
 
 import org.opencv.aruco.*;
 import org.opencv.core.CvType;
+import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
@@ -15,6 +17,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.rmi.UnexpectedException;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -98,20 +101,7 @@ public class Main {
         return () -> {
             // debug
             Scanner scanner = new Scanner(System.in);
-
-            // polar coordiantes singleton
-            try {
-                final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
-                LOGGER.info("polar for 31° -> " + polarCoordValueAngleRange.findValueByAngle(31));
-                LOGGER.info("polar for 27° -> " + polarCoordValueAngleRange.findValueByAngle(27));
-                LOGGER.info("polar for 9° -> " + polarCoordValueAngleRange.findValueByAngle(9));
-                LOGGER.info("polar for 156° -> " + polarCoordValueAngleRange.findValueByAngle(156));
-                LOGGER.info("polar for 359.009° -> " + polarCoordValueAngleRange.findValueByAngle(359.009));
-            } catch (UnexpectedException e) {
-                // ignored
-            }
-            scanner.nextLine();
-
+            
             final var resourceProvider = new ResourceProvider();
             final var cameraParameter = CameraParameter.defaultParameter();
             
@@ -202,7 +192,7 @@ public class Main {
                     imagePath, 
                     cameraParameter,
                     calibrationData,
-                    false);
+                    true);
 
                 // aruco detection of undistorted image and extraction of ROI
                 LOGGER.info("trying to detect aruco markers in " + imagePath);
@@ -212,21 +202,13 @@ public class Main {
                     600,
                     600,
                     true, // use true for more reliable extraction of a ROI 
-                    true, 
-                    false); 
+                    false, 
+                    true); 
+                LOGGER.info(String.format("roi image size after extraction of ArUcos: %s", roiImage.size()));
                 if (roiImage != null) {
-                    // resize to 600x600 improved detection performance
-                    Imgproc.resize(
-                        roiImage,
-                        roiImage,
-                        new Size(600, 600)
-                    );
-                    
                     // contour detection in ROI image
                     /*
                     final var contourParamater = ContourParameter.defaultParameter();
-                    */
-                    /*
                     */
                     final var contourParamater = new ContourParameter(
                         0,
@@ -243,17 +225,11 @@ public class Main {
                         roiImage,
                         contourParamater,
                         false,
-                        false
+                        true
                     );
-                    /* debug 
-                    DetectionUtil.debugShowImage(
-                        resizedROI, 
-                        "afterDrawContour");
-                    */
 
                     // extract outer most ellipse
                     for (var contourData : contourDataList) {
-                        // final var dbgImage = roiImage.clone();
                         /*
                         LOGGER.info("ContourData:"  
                             + " length=" + contourData.approxSize() 
@@ -265,49 +241,113 @@ public class Main {
                             thresholdLow <= contourData.area() 
                             && thresholdHigh >= contourData.area();
                         if (withinThreshold) {        
-                                final var contour2f = new MatOfPoint2f(); 
-                                contourData.contour()
-                                    .convertTo(contour2f, CvType.CV_32FC1);
-                                final var rotatedRect = 
-                                    Imgproc.fitEllipse(
-                                        contour2f);
+                            final var contour2f = new MatOfPoint2f(); 
+                            contourData.contour()
+                                .convertTo(contour2f, CvType.CV_32FC1);
+                            final var rotatedRect = 
+                                Imgproc.fitEllipse(
+                                    contour2f);
 
-                                // generate polar coordinate system using the found ellipse
-                                final var polarCoordSysImage = roiImage.clone();
-                                // draw bounding box of ellipse
-                                LOGGER.info("ellipse bounding rect: " + rotatedRect.boundingRect());
-                                Imgproc.rectangle(
-                                    polarCoordSysImage,
-                                    rotatedRect.boundingRect(),
-                                    new Scalar(240, 1, 255),
-                                    1
-                                );
-                                // outer ellipse
-                                Imgproc.ellipse(
-                                    polarCoordSysImage,
-                                    rotatedRect,
-                                    new Scalar(40,240,255),
-                                    1
-                                );
-                                // center
-                                Imgproc.drawMarker(
-                                    polarCoordSysImage, 
-                                    rotatedRect.center,
-                                    new Scalar(50,50,50),
-                                    Imgproc.MARKER_CROSS, 
-                                    600
-                                );
-                                final var limits = DetectionUtil.determineDartboardSectorLimits(
-                                    polarCoordSysImage, 
-                                    rotatedRect, 
-                                    true);
-                                LOGGER.info("Limits: " + limits);
-                                // debug
-                                DetectionUtil.debugShowImage(
-                                    polarCoordSysImage,
-                                    "polar_" + imagePath.substring(
-                                        imagePath.lastIndexOf("/") + 1,
-                                        imagePath.length()));
+                            // generate polar coordinate system using the found ellipse
+                            final var polarCoordSysImage = roiImage.clone();
+                            // draw bounding box of ellipse
+                            LOGGER.info("ellipse bounding rect: " + rotatedRect.boundingRect());
+                            Imgproc.rectangle(
+                                polarCoordSysImage,
+                                rotatedRect.boundingRect(),
+                                new Scalar(240, 1, 255),
+                                1
+                            );
+                            // outer ellipse
+                            Imgproc.ellipse(
+                                polarCoordSysImage,
+                                rotatedRect,
+                                new Scalar(40,240,255),
+                                1
+                            );
+                            // center
+                            Imgproc.drawMarker(
+                                polarCoordSysImage, 
+                                rotatedRect.center,
+                                new Scalar(50,50,50),
+                                Imgproc.MARKER_CROSS, 
+                                600
+                            );
+                            final var limits = DetectionUtil.determineDartboardSectorLimits(
+                                polarCoordSysImage, 
+                                rotatedRect, 
+                                true);
+                            LOGGER.info("Limits: " + limits);
+                            // debug
+                            DetectionUtil.debugShowImage(
+                                polarCoordSysImage,
+                                "polar_" + imagePath.substring(
+                                    imagePath.lastIndexOf("/") + 1,
+                                    imagePath.length())
+                            );
+                            // draw polar coordinate system
+                            // LOGGER.info("continue?");
+                            // scanner.nextLine();
+
+                            // polar coordiantes singleton
+                            try {
+                                final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
+                                LOGGER.info("polar for 31° -> " + polarCoordValueAngleRange.findValueByAngle(31));
+                                LOGGER.info("polar for 27° -> " + polarCoordValueAngleRange.findValueByAngle(27));
+                                LOGGER.info("polar for 9° -> " + polarCoordValueAngleRange.findValueByAngle(9));
+                                LOGGER.info("polar for 156° -> " + polarCoordValueAngleRange.findValueByAngle(156));
+                                LOGGER.info("polar for 359.009° -> " + polarCoordValueAngleRange.findValueByAngle(359.009));
+                                // draw polar coordinate system
+                                final var pointLeftFieldBoundary = new Point();
+                                final var pointRightFieldBoundary = new Point();
+                                for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
+                                    final double startAngle = entry.getKey().getMinValue();
+                                    final double endAngle = entry.getKey().getMaxValue();    
+                                    pointLeftFieldBoundary.x = (int) Math.round(
+                                        rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
+                                    pointLeftFieldBoundary.y = (int) Math.round(
+                                        rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
+
+                                    pointRightFieldBoundary.x = (int) Math.round(
+                                        rotatedRect.center.x + (rotatedRect.size.width / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
+                                    pointRightFieldBoundary.y = (int) Math.round(
+                                        rotatedRect.center.y + (rotatedRect.size.height / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
+
+                                    LOGGER.info(String.format(
+                                        "drawLine for angles [%s][%s] to (%s,%s)", startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
+                                    Imgproc.line(
+                                        polarCoordSysImage,
+                                        rotatedRect.center,
+                                        pointLeftFieldBoundary,
+                                        new Scalar(200, 50, 200),
+                                        1
+                                    );
+                                    Imgproc.line(
+                                        polarCoordSysImage,
+                                        rotatedRect.center,
+                                        pointRightFieldBoundary,
+                                        new Scalar(200, 50, 200),
+                                        1
+                                    );
+                                    Imgproc.putText(
+                                        polarCoordSysImage,
+                                        String.valueOf(entry.getValue()),
+                                        pointRightFieldBoundary,
+                                        Imgproc.FONT_HERSHEY_DUPLEX,
+                                        0.3,
+                                        new Scalar(200, 50, 200)
+                                    );
+                                    // debug
+                                    // DetectionUtil.debugShowImage(polar, "polar_sys");
+                                    // LOGGER.info("press any...");
+                                    // scanner.nextLine();
+                                }
+                                DetectionUtil.debugShowImage(polarCoordSysImage, "polar_sys");
+                            } catch (UnexpectedException e) {
+                                // ignored
+                            }
+                            LOGGER.info("continue?");
+                            scanner.nextLine();
                         } else {
                             LOGGER.info("Ignored ellipse: (" 
                                 + imagePath.substring(
