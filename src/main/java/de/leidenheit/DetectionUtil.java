@@ -452,7 +452,7 @@ public final class DetectionUtil {
         RotatedRect ellipseBoundary, 
         boolean debug) {
 
-        final var width = ellipseBoundary.size.width;
+        final var width = ellipseBoundary.boundingRect().width;
         final var radiusBullsEyeLimit = (int) (width * (DartboardRadianFactor.BULLSEYE / 100));
         final var radiusBullLimit = (int) (width * (DartboardRadianFactor.BULL / 100));
         final var radiusInnerTripleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_INNER_TRIPLE / 100));
