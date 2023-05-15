@@ -287,9 +287,11 @@ public final class DetectionUtil {
         );
 
         if (debug) {
+            /*
             DetectionUtil.debugShowImage(
                 blurred, 
                 "contour_gauss");
+            */
         }
         
         // apply canny filter to improve detection
@@ -384,6 +386,7 @@ public final class DetectionUtil {
             );
         }
         if (debug) {
+            /* buggy
             final var modContours = roi.clone();     
             // filtered contours
             Imgproc.drawContours(
@@ -396,6 +399,7 @@ public final class DetectionUtil {
             DetectionUtil.debugShowImage(
                 modContours, 
                 "contours_after_area_peri_approx_bb");
+            */
         }
         return contourDataList;
     }
@@ -582,6 +586,66 @@ public final class DetectionUtil {
         }
 
         return new double[]{radius, angle};
+    }
+
+    /**
+     * Draws a dartboard representation as polar coordinate system on a given image. 
+     * 
+     * @param image {@link Mat}
+     * @param rotatedRectEllipse {@link RotatedRect}
+     * @param debug
+     */
+    public static void drawPolarCoordinateSystem(
+            Mat image, 
+            RotatedRect rotatedRectEllipse, 
+            boolean debug) {
+        final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
+        final var pointLeftFieldBoundary = new Point();
+        final var pointRightFieldBoundary = new Point();
+        for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
+            final double startAngle = entry.getKey().getMinValue();
+            final double endAngle = entry.getKey().getMaxValue();    
+            pointLeftFieldBoundary.x = (int) Math.round(
+                rotatedRectEllipse.center.x + 
+                    (rotatedRectEllipse.size.width / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
+            pointLeftFieldBoundary.y = (int) Math.round(
+                rotatedRectEllipse.center.y + 
+                    (rotatedRectEllipse.size.height / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
+            pointRightFieldBoundary.x = (int) Math.round(
+                rotatedRectEllipse.center.x + 
+                    (rotatedRectEllipse.size.width / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
+            pointRightFieldBoundary.y = (int) Math.round(
+                rotatedRectEllipse.center.y + 
+                    (rotatedRectEllipse.size.height / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
+
+            LOGGER.info(String.format("drawLine for angles [%s][%s] to (%s,%s)", 
+                startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
+            Imgproc.line(
+                image,
+                rotatedRectEllipse.center,
+                pointLeftFieldBoundary,
+                new Scalar(200, 50, 200),
+                1
+            );
+            Imgproc.line(
+                image,
+                rotatedRectEllipse.center,
+                pointRightFieldBoundary,
+                new Scalar(200, 50, 200),
+                1
+            );
+            Imgproc.putText(
+                image,
+                String.valueOf(entry.getValue()),
+                pointRightFieldBoundary,
+                Imgproc.FONT_HERSHEY_DUPLEX,
+                0.3,
+                new Scalar(200, 50, 200)
+            );
+            if (debug) {
+                DetectionUtil.debugShowImage(image, "debug_polarcoordsys_" + entry.getValue());
+            }
+        }
     }
 
     private DetectionUtil() {

@@ -293,9 +293,21 @@ public class Main {
                             // System.out.println("continue?");
                             // scanner.nextLine();
 
+                            final var contourParamaterWarp = new ContourParameter(
+                                13,
+                                50,
+                                150,
+                                0,
+                                0,
+                                50,
+                                0.01,
+                                new Scalar(31, 240, 255),
+                                1
+                            );
                             final var warpedContourDataList = DetectionUtil.findContours(
                                 destination,
                                 // contourParamater,
+                                // contourParamaterWarp,
                                 ContourParameter.defaultParameter(),
                                 false,
                                 false
@@ -303,8 +315,8 @@ public class Main {
                             LOGGER.info(String.format("Found contours in warped image: %s", warpedContourDataList.size()));        
                             for (var x : warpedContourDataList) {
                                 final var warpedWithinThreshold = 
-                                    189_000 <= x.area() 
-                                    && 1_250_000 >= x.area();
+                                    185_000 <= x.area() 
+                                    && 1_000_000 >= x.area();
                                 if (warpedWithinThreshold) {        
                                     LOGGER.info("ellipse valid threshold:" + x.area());
                                     final var warpedContour2f = new MatOfPoint2f(); 
@@ -343,66 +355,35 @@ public class Main {
                                         960
                                     );
 
-                                    // TODO just a test here
+                                    // TODO test me
                                     final var limits = DetectionUtil.determineDartboardSectorLimits(
                                         polarCoordSysImage, 
                                         warpedRotatedRect, 
                                         true);
                                     LOGGER.info("Limits: " + limits);
-                                    // debug
+                                    //debug
                                     // LOGGER.info("continue?");
                                     // scanner.nextLine();
 
                                     // draw polar coordiantes from singleton
-                                    final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
-                                    final var pointLeftFieldBoundary = new Point();
-                                    final var pointRightFieldBoundary = new Point();
-                                    for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
-                                        final double startAngle = entry.getKey().getMinValue();
-                                        final double endAngle = entry.getKey().getMaxValue();    
-                                        pointLeftFieldBoundary.x = (int) Math.round(
-                                            warpedRotatedRect.center.x + (warpedRotatedRect.size.width / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
-                                        pointLeftFieldBoundary.y = (int) Math.round(
-                                            warpedRotatedRect.center.y + (warpedRotatedRect.size.height / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
+                                    DetectionUtil.drawPolarCoordinateSystem(
+                                        polarCoordSysImage,    
+                                        warpedRotatedRect,
+                                        false
+                                    );
 
-                                        pointRightFieldBoundary.x = (int) Math.round(
-                                            warpedRotatedRect.center.x + (warpedRotatedRect.size.width / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
-                                        pointRightFieldBoundary.y = (int) Math.round(
-                                            warpedRotatedRect.center.y + (warpedRotatedRect.size.height / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
+                                    // TODO test me
+                                    /*
+                                    DetectionUtil.determineRadiusAndAngleFromPointRelativeToCenter(
+                                        warpedRotatedRect.center,
+                                        hitPoint);
+                                    */
 
-                                        LOGGER.info(String.format(
-                                            "drawLine for angles [%s][%s] to (%s,%s)", startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
-                                        Imgproc.line(
-                                            polarCoordSysImage,
-                                            warpedRotatedRect.center,
-                                            pointLeftFieldBoundary,
-                                            new Scalar(200, 50, 200),
-                                            1
-                                        );
-                                        Imgproc.line(
-                                            polarCoordSysImage,
-                                            warpedRotatedRect.center,
-                                            pointRightFieldBoundary,
-                                            new Scalar(200, 50, 200),
-                                            1
-                                        );
-                                        Imgproc.putText(
-                                            polarCoordSysImage,
-                                            String.valueOf(entry.getValue()),
-                                            pointRightFieldBoundary,
-                                            Imgproc.FONT_HERSHEY_DUPLEX,
-                                            0.3,
-                                            new Scalar(200, 50, 200)
-                                        );
-
-                                        // TODO just a test here
-                                        DetectionUtil.determineRadiusAndAngleFromPointRelativeToCenter(
-                                            warpedRotatedRect.center,
-                                            pointRightFieldBoundary);
-                                    }
-
-
-                                    DetectionUtil.debugShowImage(polarCoordSysImage, "x");
+                                    DetectionUtil.debugShowImage(polarCoordSysImage, "x_"
+                                        + imagePath.substring(
+                                            imagePath.lastIndexOf("/") + 1,
+                                            imagePath.length())
+                                    );
                                     LOGGER.info(String.format("warped image with polar coordinates %s (before=%s)", polarCoordSysImage.size(), rotatedRect.size));
                                     // debug
                                     LOGGER.info("continue?");
