@@ -648,6 +648,134 @@ public final class DetectionUtil {
         }
     }
 
+    /**
+     * Estimates the most outer ellipse shape in an given {@link Mat} image.
+     * 
+     * @param imageWithContours {@link Mat}
+     * @param contourParameter {@link ContourParameter}
+     * @param warpToSquareLikeShape 
+     * @param debug
+     * 
+     * @return {@link RotatedRect}
+    public static RotatedRect findMostOuterEllipse(
+        Mat imageWithContours,
+        ContourParameter contourParameter,
+        boolean warpToSquareLikeShape,
+        boolean debug 
+    ) {
+        final var contourDataList = DetectionUtil.findContours(
+            imageWithContours,
+            contourParameter,
+            debug,
+            debug
+        );
+        LOGGER.info(String.format("Found contours: %s", contourDataList.size()));
+        // extract outer most ellipse
+        for (var contourData : contourDataList) {
+            if (debug) {
+                LOGGER.info("ContourData:"  
+                    + " length=" + contourData.approxSize() 
+                    + "; area=" + contourData.area());
+            }
+            final var thresholdLow = 100_000; // TODO as parameter
+            final var thresholdHigh = 500_000; // TODO as parameter
+            final var withinThreshold = 
+                thresholdLow <= contourData.area() 
+                && thresholdHigh >= contourData.area();
+            if (withinThreshold) {        
+                final var contour2f = new MatOfPoint2f(); 
+                contourData.contour()
+                    .convertTo(contour2f, CvType.CV_32FC1);
+                final var rotatedRect = 
+                    Imgproc.fitEllipse(
+                        contour2f);
+                LOGGER.info("Most outer ellipse bounding rect: " + rotatedRect.boundingRect());
+
+                final var isNotSquareLikeShape = rotatedRect.size.width != rotatedRect.size.height; 
+                // warping most outer ellipse to a square like shape 
+                if (warpToSquareLikeShape && isNotSquareLikeShape) {
+                    // create squared target image
+                    final var size = rotatedRect.size.width >= rotatedRect.size.height ?
+                        rotatedRect.size.width : rotatedRect.size.height;
+                    Mat destination = new Mat((int)size, (int)size, CvType.CV_8UC1);
+
+                    // define points of the squared target ellipse
+                    Point[] destinationPoints = new Point[4];
+                    destinationPoints[0] = new Point(0, 0);
+                    destinationPoints[1] = new Point(destination.cols(), 0);
+                    destinationPoints[2] = new Point(destination.cols(), destination.rows());
+                    destinationPoints[3] = new Point(0, destination.rows());
+                    
+                    // grab points of the found most outer ellipse
+                    Point[] sourcePoints = new Point[4];
+                    sourcePoints[0] = new Point(rotatedRect.center.x - rotatedRect.size.width / 2, 
+                        rotatedRect.center.y - rotatedRect.size.height / 2);
+                    sourcePoints[1] = new Point(rotatedRect.center.x + rotatedRect.size.width / 2, 
+                        rotatedRect.center.y - rotatedRect.size.height / 2);
+                    sourcePoints[2] = new Point(rotatedRect.center.x + rotatedRect.size.width / 2, 
+                        rotatedRect.center.y + rotatedRect.size.height / 2);
+                    sourcePoints[3] = new Point(rotatedRect.center.x - rotatedRect.size.width / 2, 
+                        rotatedRect.center.y + rotatedRect.size.height / 2);
+
+                    // apply perspective transformation
+                    Mat transformationMatrix = Imgproc.getPerspectiveTransform(
+                        new MatOfPoint2f(sourcePoints), 
+                        new MatOfPoint2f(destinationPoints)
+                    );
+                    Imgproc.warpPerspective(
+                        imageWithContours, 
+                        destination, 
+                        transformationMatrix, 
+                        destination.size());
+
+                    final var contourParamaterWarp = new ContourParameter(
+                        13,
+                        50,
+                        150,
+                        0,
+                        0,
+                        50,
+                        0.01,
+                        new Scalar(31, 240, 255),
+                        1
+                    );
+                    final var warpedContourDataList = DetectionUtil.findContours(
+                        destination,
+                        ContourParameter.defaultParameter(),
+                        debug,
+                        debug
+                    );
+
+                    LOGGER.info(String.format("Found contours in warped image: %s", 
+                        warpedContourDataList.size()));        
+                    for (var contour : warpedContourDataList) {
+                        final var warpedWithinThreshold = 
+                            185_000 <= contour.area() 
+                            && 1_000_000 >= contour.area();
+                        if (warpedWithinThreshold) {        
+                            LOGGER.info("Warped ellipse valid threshold:" + contour.area());
+                            final var warpedContour2f = new MatOfPoint2f(); 
+                            contour.contour()
+                                .convertTo(warpedContour2f, CvType.CV_32FC1);
+                            final var warpedRotatedRect = 
+                                Imgproc.fitEllipse(
+                                    warpedContour2f);
+                            LOGGER.info("warped ellipse bounding rect: " + 
+                                warpedRotatedRect.boundingRect());
+                        } else {
+                            LOGGER.info("ellipse ignored due to threshold:" + contour.area());
+                        }
+                    }    
+                }
+                return rotatedRect;
+            } else {
+                // ignored
+            }
+        }
+        return null;
+    }
+     */
+
     private DetectionUtil() {
         // hide constructor
     }

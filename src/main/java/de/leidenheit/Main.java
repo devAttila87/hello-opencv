@@ -209,6 +209,12 @@ public class Main {
                     false); 
                 LOGGER.info(String.format("roi image size after extraction of ArUcos: %s", roiImage.size()));
                 if (roiImage != null) {
+
+
+
+
+
+
                     // contour detection in ROI image
                     /*
                     final var contourParamater = ContourParameter.defaultParameter();
