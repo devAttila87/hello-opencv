@@ -165,13 +165,12 @@ public final class DetectionUtil {
                 new Scalar(0,0, 161)
             ); 
         }
-
-        // test cropping the image based on the inner corners
-        // of aruco markers
+        if (debug) {
+            DetectionUtil.debugShowImage(
+                    undistortedImage,
+                    "undistorted_aruco_markers");
+        }
         // check if all corners are present in image
-        // debug 
-        // System.out.println("Press any key to continue.....");
-        // scanner.nextLine();
         var markerIdsAsString = markerIds.dump();
         // this regex removes [] newline tab space from a given string
         markerIdsAsString = markerIdsAsString.replaceAll("[\\[\\]\n\t ]", "");
@@ -261,13 +260,13 @@ public final class DetectionUtil {
      * Finds contours in a given ROI {@link Mat}.
      * 
      * @param roi   {@link Mat}
-     * @param contourParamater {@link ContourParameter}
+     * @param contourParameter {@link ContourParameter}
      * @param debug
      * @return Returns a list of {@link MatOfPoint} containing found contours.
      */
     public static List<ContourData> findContours(
         Mat roi, 
-        ContourParameter contourParamater,
+        ContourParameter contourParameter,
         boolean drawContours, 
         boolean debug) {
 
@@ -282,16 +281,14 @@ public final class DetectionUtil {
         Imgproc.GaussianBlur(
             gray,
             blurred,
-            new Size(contourParamater.gaussFactor(), contourParamater.gaussFactor()),
+            new Size(contourParameter.gaussFactor(), contourParameter.gaussFactor()),
             1
         );
 
         if (debug) {
-            /*
             DetectionUtil.debugShowImage(
                 blurred, 
                 "contour_gauss");
-            */
         }
         
         // apply canny filter to improve detection
@@ -299,9 +296,8 @@ public final class DetectionUtil {
         Imgproc.Canny(
             blurred,
             edges,
-            contourParamater.cannyThresholdLow(),
-            contourParamater.cannyThresholdHigh());
-        
+            contourParameter.cannyThresholdLow(),
+            contourParameter.cannyThresholdHigh());
         final var kernel = Imgproc.getStructuringElement(
             Imgproc.MORPH_RECT, 
             new Size(4, 4));
@@ -309,21 +305,17 @@ public final class DetectionUtil {
         Imgproc.dilate(
             edges,
             edges_dilate,
-            kernel
-            /*, decreases quality of detection
+            kernel,
             new Point(),
-            contourParamater.dilateIterations()
-             */
+            contourParameter.dilateIterations()
         );
         final var edges_erode = new Mat();
         Imgproc.erode(
             edges_dilate,
             edges_erode,
-            kernel
-            /*, decreases quality of detection
+            kernel,
             new Point(),
-            contourParamater.erodeIterations() 
-            */
+            contourParameter.erodeIterations()
         );
         if (debug) {
             DetectionUtil.debugShowImage(
@@ -343,8 +335,7 @@ public final class DetectionUtil {
             Imgproc.CHAIN_APPROX_SIMPLE 
         );
 
-        final var areaThreshold = contourParamater.areaThreshold();
-        final var finalContours = new ArrayList<MatOfPoint>(); // TODO own type: contour, boundingBox, area, perimeter
+        final var areaThreshold = contourParameter.areaThreshold();
         for (MatOfPoint contour : contours) {
             final var area = Imgproc.contourArea(
                 contour);
@@ -353,15 +344,15 @@ public final class DetectionUtil {
                 contour.convertTo(contour2f, CvType.CV_32FC1);
                 final var perimeter = Imgproc.arcLength(
                     contour2f, 
-                    true);
+                    false);
 
-                final var epsilon = contourParamater.epsilon();
+                final var epsilon = contourParameter.epsilon();
                 final var approximatedCurve = new MatOfPoint2f(); 
                 Imgproc.approxPolyDP(
                     contour2f, 
                     approximatedCurve, 
                     epsilon * perimeter, 
-                    true);
+                    false);
 
                 final var boundingBoxRect = Imgproc.boundingRect(approximatedCurve);
 
@@ -381,25 +372,14 @@ public final class DetectionUtil {
                 roi,
                 contours,
                 -1,
-                contourParamater.drawColorBGRA(),
-                contourParamater.drawThickness()
+                contourParameter.drawColorBGRA(),
+                contourParameter.drawThickness()
             );
         }
         if (debug) {
-            /* buggy
-            final var modContours = roi.clone();     
-            // filtered contours
-            Imgproc.drawContours(
-                modContours,
-                finalContours,
-                -1,
-                contourParamater.drawColorBGRA(),
-                contourParamater.drawThickness()
-            );
             DetectionUtil.debugShowImage(
-                modContours, 
+                roi,
                 "contours_after_area_peri_approx_bb");
-            */
         }
         return contourDataList;
     }
@@ -424,6 +404,26 @@ public final class DetectionUtil {
         );
     }
 
+    // TODO modify to support also angles
+    public static void drawPolarCoordinateFactorXAxis2(
+            Mat ellipseImage,
+            Point center,
+            int xOffsetFromOrigin,
+            int drawSize,
+            int xAdjustment,
+            int yAdjustment,
+            Scalar colorScalar) {
+
+        final var radius = (int) center.x + xOffsetFromOrigin + xAdjustment;
+        Imgproc.drawMarker(
+                ellipseImage,
+                new Point(radius, (int) center.y + yAdjustment),
+                colorScalar,
+                Imgproc.MARKER_CROSS,
+                drawSize
+        );
+    }
+
     /**
      * Uses {@link HighGui.imshow} to present an image resized into 640x480 pixels.
      * for debugging purposes.
@@ -440,6 +440,94 @@ public final class DetectionUtil {
         HighGui.imshow(windowName, matImage);
         HighGui.waitKey(25);
         HighGui.destroyWindow(windowName);
+    }
+
+    /**
+     * Returns the limits of the basic dartboard sectors based on calculation factors
+     * applied to a given dartboard ellipse.
+     *
+     * @param ellipseImage {@link Mat}
+     * @param ellipseBoundary {@link RotatedRect}
+     * @param debug
+     * @return {@link DartboardSectorLimits}
+     */
+    public static DartboardSectorLimits determineDartboardSectorLimits2(
+            Mat ellipseImage,
+            Point center,
+            int radius,
+            boolean debug) {
+
+        final var width = radius * 2;
+        final var radiusBullsEyeLimit = (int) (width * (DartboardRadianFactor.BULLSEYE / 100));
+        final var radiusBullLimit = (int) (width * (DartboardRadianFactor.BULL / 100));
+        final var radiusInnerTripleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_INNER_TRIPLE / 100));
+        final var radiusOuterTripleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_OUTER_TRIPLE / 100));
+        final var radiusInnerDoubleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_INNER_DOUBLE / 100));
+        final var radiusOuterDoubleLimit = (int) (width * (DartboardRadianFactor.QUADRANT_OUTER_DOUBLE / 100));
+
+        if (debug) {
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusBullsEyeLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusBullLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusInnerTripleLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusOuterTripleLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusInnerDoubleLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+            DetectionUtil.drawPolarCoordinateFactorXAxis2(
+                    ellipseImage,
+                    center,
+                    radiusOuterDoubleLimit,
+                    100,
+                    0,
+                    0,
+                    new Scalar(0, 0, 139)
+            );
+        }
+        return new DartboardSectorLimits(
+                radiusBullsEyeLimit,
+                radiusBullLimit,
+                radiusInnerTripleLimit,
+                radiusOuterTripleLimit,
+                radiusInnerDoubleLimit,
+                radiusOuterDoubleLimit);
     }
 
     /**

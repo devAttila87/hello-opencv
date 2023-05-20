@@ -12,6 +12,7 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.HighGui;
 import org.opencv.imgproc.Imgproc;
+import org.opencv.osgi.OpenCVInterface;
 import org.opencv.videoio.VideoCapture;
 
 import javax.swing.*;
@@ -33,10 +34,14 @@ public class Main {
         // log everything
         LOGGER.setLevel(Level.INFO);
 
-        // TODO MOVE
         // load openCV
-        System.load("/home/leidenheit/hello-opencv/lib/libopencv_java460.so");
-        LOGGER.info("OpenCV loaded successfully :-)");
+        // ubuntu arm64
+        // System.load("C:\\Users\\Attila\\Documents\\development\\java\\hello-opencv\\lib\\arm64\\libopencv_java460.so");
+        // windows x64
+        System.load("C:\\Users\\Attila\\Documents\\development\\java\\hello-opencv\\lib\\x64\\opencv_java460.dll");
+        LOGGER.info(String.format("OpenCV %s loaded successfully :-)", Core.VERSION));
+
+
 
         // create gui   
         
@@ -134,7 +139,8 @@ public class Main {
             if (calibrationData == null) {
                 LOGGER.info("Starting fresh calibration by images");
                 final var imagePaths = resourceProvider
-                    .findFilePathsFromResourcePath("chessboard/1920_1446");
+                    // .findFilePathsFromResourcePath("chessboard/1920_1446");
+                    .findFilePathsFromResourcePath("chessboard/temp");
                 final var chessboardData = ChessboardData.init();
                     
                 // for each image do find chessboard corners
@@ -148,47 +154,26 @@ public class Main {
                         cameraParameter,
                         chessboardData,
                         (originalFrame, cornersFrame) -> {
-                            // clear and repaint Jpanels
-                            /*
-                            cameraFeed.removeAll();
-                            processedFeed.removeAll();
-                            cameraFeed.repaint();
-                            processedFeed.repaint();
-                            try {
-                                // Thread.sleep(500);
-                            } catch (Exception e) {
-                                // TODO: handle exception
-                            }
-
                             DetectionUtil.debugShowImage(
                                 originalFrame, "original_" + imagePath
                             );
-                             */
-
-                            // draw the images to the panels
-                            // DetectionUtil.drawImage(originalFrame, cameraFeed);
-                            // DetectionUtil.drawImage(cornersFrame, processedFeed);
                         });                        
                     if (!hasCorners) {
-                        LOGGER.warning("could not determine corners in image " + img.getAbsolutePath());
                         continue;
                     }
                 }
-            
+
                 // calibrate with the infos
                 calibrationData = CameraCalibrator.calibrate(
                     cameraParameter,
                     chessboardData
                 );
-
-                // debug 
-                // System.out.println("Press any key to continue.....");
-                // scanner.nextLine();
             }
 
             // distortion, ArUco region of interest and field detection
             final var dartsboardImagePaths = resourceProvider
-                .findFilePathsFromResourcePath("dartsboard/1920_1446");
+                // .findFilePathsFromResourcePath("dartsboard/1920_1446");
+                .findFilePathsFromResourcePath("dartsboard/temp");
             LOGGER.info("distortion of " + dartsboardImagePaths + "...");
             for (String imagePath: dartsboardImagePaths) {
                 final var undistortedImage = DetectionUtil.distortFunction(
@@ -204,127 +189,139 @@ public class Main {
                     Aruco.DICT_6X6_250,
                     960,
                     960,
-                    true, // use true for more reliable extraction of a ROI 
-                    false, 
-                    false); 
+                    true, // use true for more reliable extraction of a ROI
+                    false,
+                    false);
                 LOGGER.info(String.format("roi image size after extraction of ArUcos: %s", roiImage.size()));
                 if (roiImage != null) {
 
-
-
-
-
-
                     // contour detection in ROI image
                     /*
-                    final var contourParamater = ContourParameter.defaultParameter();
+                    final var contourParameter = ContourParameter.defaultParameter();
                     */
-                    final var contourParamater = new ContourParameter(
-                        0,
+                    final var contourParameter = new ContourParameter(
+                        11,
+                        50,
                         150,
-                        250,
-                        1,
-                        1,
-                        100,
+
+                            6,
+                        2,
+                        50,
                         0.01,
                         new Scalar(31, 240, 255),
-                        1
+                        2
                     );
+                    final var contourImage = roiImage.clone();
                     final var contourDataList = DetectionUtil.findContours(
-                        roiImage,
-                        contourParamater,
+                        contourImage,
+                        contourParameter,
                         false,
                         false
                     );
                     LOGGER.info(String.format("Found contours in roiImage: %s", contourDataList.size()));
-
                     // extract outer most ellipse
                     for (var contourData : contourDataList) {
-                        /*
                         LOGGER.info("ContourData:"  
                             + " length=" + contourData.approxSize() 
                             + "; area=" + contourData.area());
-                        */
-                        final var thresholdLow = 100_000;
-                        final var thresholdHigh = 500_000;
+                        final var thresholdLow = 500_000;
+                        final var thresholdHigh = 2_500_000;
                         final var withinThreshold = 
                             thresholdLow <= contourData.area() 
                             && thresholdHigh >= contourData.area();
-                        if (withinThreshold) {        
+                        if (withinThreshold) {
                             final var contour2f = new MatOfPoint2f(); 
                             contourData.contour()
                                 .convertTo(contour2f, CvType.CV_32FC1);
                             final var rotatedRect = 
                                 Imgproc.fitEllipse(
                                     contour2f);
-                            LOGGER.info("ellipse bounding rect: " + rotatedRect.boundingRect());
-                            // debug
-                            // LOGGER.info("continue?");
-                            // scanner.nextLine();
+                            LOGGER.info(String.format("ellipse bounding rect: %s",  rotatedRect.boundingRect()));
+                            // draw bounding box of ellipse
+                            Imgproc.rectangle(
+                                    contourImage,
+                                    rotatedRect.boundingRect(),
+                                    new Scalar(240, 1, 255),
+                                    1
+                            );
+                            // outer ellipse
+                            Imgproc.ellipse(
+                                    contourImage,
+                                    rotatedRect,
+                                    new Scalar(40,240,255),
+                                    1
+                            );
+                            // center
+                            Imgproc.drawMarker(
+                                    contourImage,
+                                    rotatedRect.center,
+                                    new Scalar(50,50,50),
+                                    Imgproc.MARKER_CROSS,
+                                    960
+                            );
+                            DetectionUtil.debugShowImage(contourImage, "before_warp_ellipse");
+                            LOGGER.info("continue warping?");
+                            scanner.nextLine();
 
 
-
-                            // TEST warping ellipse and apply the transformation to roiImage
-                            // DetectionUtil.debugShowImage(roiImage, "before_warp_ellipse");
 
                             // Erzeuge das Zielbild mit der quadratischen Größe
                             final var size = rotatedRect.size.width >= rotatedRect.size.height ?
-                                rotatedRect.size.width : rotatedRect.size.height; 
-                            /*
-                            final var size = roiImage.width() >= roiImage.height() ?
-                                roiImage.width() : roiImage.height(); 
-                            */
+                                rotatedRect.size.width : rotatedRect.size.height;
+                            // final var size = roiImage.width() >= roiImage.height() ?
+                            //    roiImage.width() : roiImage.height();
                             Mat destination = new Mat((int)size, (int)size, CvType.CV_8UC1);
-
                             // Definiere die Eckpunkte der Zielellipse
                             Point[] destinationPoints = new Point[4];
                             destinationPoints[0] = new Point(0, 0);
                             destinationPoints[1] = new Point(destination.cols(), 0);
                             destinationPoints[2] = new Point(destination.cols(), destination.rows());
                             destinationPoints[3] = new Point(0, destination.rows());
-
                             // Definiere die Eckpunkte der Quellellipse
                             Point[] sourcePoints = new Point[4];
                             sourcePoints[0] = new Point(rotatedRect.center.x - rotatedRect.size.width / 2, rotatedRect.center.y - rotatedRect.size.height / 2);
                             sourcePoints[1] = new Point(rotatedRect.center.x + rotatedRect.size.width / 2, rotatedRect.center.y - rotatedRect.size.height / 2);
                             sourcePoints[2] = new Point(rotatedRect.center.x + rotatedRect.size.width / 2, rotatedRect.center.y + rotatedRect.size.height / 2);
                             sourcePoints[3] = new Point(rotatedRect.center.x - rotatedRect.size.width / 2, rotatedRect.center.y + rotatedRect.size.height / 2);
-
                             // Führe die Perspektiventransformation durch
                             Mat transformationMatrix = Imgproc.getPerspectiveTransform(new MatOfPoint2f(sourcePoints), new MatOfPoint2f(destinationPoints));
                             Imgproc.warpPerspective(roiImage, destination, transformationMatrix, destination.size());
-
                             // debug 
-                            // DetectionUtil.debugShowImage(destination, "after_warp_ellipse");
-                            // System.out.println("continue?");
-                            // scanner.nextLine();
+                            DetectionUtil.debugShowImage(destination, "after_warp_ellipse");
+                            System.out.println("continue with hough circle detection?");
+                            scanner.nextLine();
 
-                            final var contourParamaterWarp = new ContourParameter(
-                                13,
-                                50,
+                            /*
+                            final var contourParameterWarp = new ContourParameter(
+                                11,
+                                100,
                                 150,
-                                0,
-                                0,
-                                50,
+                                1,
+                                1,
+                                100,
                                 0.01,
                                 new Scalar(31, 240, 255),
-                                1
+                                2
                             );
                             final var warpedContourDataList = DetectionUtil.findContours(
                                 destination,
                                 // contourParamater,
-                                // contourParamaterWarp,
-                                ContourParameter.defaultParameter(),
-                                false,
-                                false
+                                contourParameterWarp,
+                                // ContourParameter.defaultParameter(),
+                                true,
+                                true
                             );
-                            LOGGER.info(String.format("Found contours in warped image: %s", warpedContourDataList.size()));        
+                            LOGGER.info(String.format("Found contours in warped image: %s", warpedContourDataList.size()));
                             for (var x : warpedContourDataList) {
-                                final var warpedWithinThreshold = 
-                                    185_000 <= x.area() 
-                                    && 1_000_000 >= x.area();
-                                if (warpedWithinThreshold) {        
-                                    LOGGER.info("ellipse valid threshold:" + x.area());
+                                LOGGER.info("Warping ContourData:"
+                                        + " length=" + x.approxSize()
+                                        + "; area=" + x.area());
+
+                            final var warpedWithinThreshold =
+                                    10_000 <= x.area()
+                                            && 50_000 >= x.area();
+                            if (warpedWithinThreshold) {
+                                    LOGGER.info("warped ellipse valid threshold:" + x.area());
                                     final var warpedContour2f = new MatOfPoint2f(); 
                                     x.contour()
                                         .convertTo(warpedContour2f, CvType.CV_32FC1);
@@ -378,13 +375,6 @@ public class Main {
                                         false
                                     );
 
-                                    // TODO test me
-                                    /*
-                                    DetectionUtil.determineRadiusAndAngleFromPointRelativeToCenter(
-                                        warpedRotatedRect.center,
-                                        hitPoint);
-                                    */
-
                                     DetectionUtil.debugShowImage(polarCoordSysImage, "x_"
                                         + imagePath.substring(
                                             imagePath.lastIndexOf("/") + 1,
@@ -398,6 +388,107 @@ public class Main {
                                     LOGGER.info("ellipse ignored due to threshold:" + x.area());
                                 }
                             }
+                             */
+                            final var src = roiImage.clone();
+                            final var gray = new Mat();
+                            Imgproc.cvtColor(src, gray, Imgproc.COLOR_BGR2GRAY);
+
+                            final var blurred = new Mat();
+                            Imgproc.GaussianBlur(
+                                    gray,
+                                    blurred,
+                                    new Size(11, 11),
+                                    1
+                            );
+                            final var edges = new Mat();
+                            Imgproc.Canny(
+                                    blurred,
+                                    edges,
+                                    100,
+                                    150);
+                            final var kernel = Imgproc.getStructuringElement(
+                                    Imgproc.MORPH_RECT,
+                                    new Size(4, 4));
+                            final var edges_dilate = new Mat();
+                            Imgproc.dilate(
+                                    edges,
+                                    edges_dilate,
+                                    kernel,
+                                    new Point(),
+                                    2
+                            );
+                            final var edges_erode = new Mat();
+                            Imgproc.erode(
+                                    edges_dilate,
+                                    edges_erode,
+                                    kernel,
+                                    new Point(),
+                                    1
+                            );
+                            DetectionUtil.debugShowImage(edges_erode, "prepared for hough circle detection");
+
+                            Mat circles = new Mat();
+                            Imgproc.HoughCircles(
+                                    // edges_erode,
+                                    gray,
+                                    circles,
+                                    Imgproc.HOUGH_GRADIENT,
+                                    1.0,
+                                    100,// (double)gray.rows()/16, // change this value to detect circles with different distances to each other
+                                            150,
+                                    100,
+                                    0,
+                                    0); // change the last two parameters
+
+                            LOGGER.info(String.format("circles found: cols=%s; rows=%s", circles.cols(), circles.rows()));
+                            // (min_radius & max_radius) to detect larger circles
+                            for (int x = 0; x < circles.cols(); x++) {
+                                double[] c = circles.get(0, x);
+                                Point center = new Point(Math.round(c[0]), Math.round(c[1]));
+                                // circle center
+                                Imgproc.drawMarker(src, center, new Scalar(0, 100, 100), Imgproc.MARKER_CROSS, 960, 1);
+                                // circle outline
+                                int radius = (int) Math.round(c[2]);
+                                Imgproc.circle(src, center, radius, new Scalar(255, 0, 255), 2, Imgproc.LINE_8, 0);
+
+                                DetectionUtil.debugShowImage(src, "hough circle");
+                                LOGGER.info(String.format("radius %s; press enter to continue....", radius));
+                                scanner.nextLine();
+
+
+                                /*
+                                // generate polar coordinate system using the found ellipse
+                                final var polarCoordSysImage = src.clone();
+                                // draw bounding box of ellipse
+                                Imgproc.rectangle(
+                                        polarCoordSysImage,
+                                        rotatedRect.boundingRect(),
+                                        new Scalar(240, 1, 255),
+                                        1
+                                );
+                                // outer ellipse
+                                Imgproc.ellipse(
+                                        polarCoordSysImage,
+                                        rotatedRect,
+                                        new Scalar(40, 240, 255),
+                                        1
+                                );
+                                // center
+                                Imgproc.drawMarker(
+                                        polarCoordSysImage,
+                                        rotatedRect.center,
+                                        new Scalar(50, 50, 50),
+                                        Imgproc.MARKER_CROSS,
+                                        960
+                                );
+                                // debug
+                                DetectionUtil.debugShowImage(polarCoordSysImage, "polar_sys");
+                                 */
+                            }
+
+
+
+
 
 
 
@@ -406,7 +497,8 @@ public class Main {
 
                             /*
                             // generate polar coordinate system using the found ellipse
-                            final var polarCoordSysImage = destination.clone();
+                            final var polarCoordSysImage = src.clone();
+
                             // draw bounding box of ellipse
                             Imgproc.rectangle(
                                 polarCoordSysImage,
@@ -431,9 +523,11 @@ public class Main {
                             );
 
                             // TODO just a test here
-                            final var limits = DetectionUtil.determineDartboardSectorLimits(
+                            final var rotatedRect = new RotatedRect();
+                            rotatedRect.boundingRect().width = 366 * 2;
+                            final var limits = DetectionUtil.determineDartboardSectorLimits2(
                                 polarCoordSysImage, 
-                                rotatedRect, 
+                                center,
                                 true);
                             LOGGER.info("Limits: " + limits);
                             // debug
@@ -490,7 +584,7 @@ public class Main {
                             // debug
                             DetectionUtil.debugShowImage(polarCoordSysImage, "polar_sys");
 
-                            */
+                             */
                         } else {
                             // ignored
                             /* 

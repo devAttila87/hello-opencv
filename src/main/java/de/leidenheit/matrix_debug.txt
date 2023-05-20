@@ -32,3 +32,167 @@ point1 = corners.get(index, 0).get(2)
 // point3
 index = markerIds.findIndex(id -> id == 3)
 point1 = corners.get(index, 0).get(3)
+
+
+
+
+
+
+
+
+
+
+                            final var src = roiImage.clone();
+                            final var gray = new Mat();
+                            Imgproc.cvtColor(src, gray, Imgproc.COLOR_BGR2GRAY);
+
+                            final var blurred = new Mat();
+                            Imgproc.GaussianBlur(
+                                    gray,
+                                    blurred,
+                                    new Size(11, 11),
+                                    1
+                            );
+                            final var edges = new Mat();
+                            Imgproc.Canny(
+                                    blurred,
+                                    edges,
+                                    100,
+                                    150);
+                            final var kernel = Imgproc.getStructuringElement(
+                                    Imgproc.MORPH_RECT,
+                                    new Size(4, 4));
+                            final var edges_dilate = new Mat();
+                            Imgproc.dilate(
+                                    edges,
+                                    edges_dilate,
+                                    kernel,
+                                    new Point(),
+                                    1
+                            );
+                            final var edges_erode = new Mat();
+                            Imgproc.erode(
+                                    edges_dilate,
+                                    edges_erode,
+                                    kernel,
+                                    new Point(),
+                                    1
+                            );
+                            DetectionUtil.debugShowImage(edges_erode, "prepared for hough circle detection");
+
+                            Mat circles = new Mat();
+                            Imgproc.HoughCircles(
+                                    edges_erode,
+                                    circles,
+                                    Imgproc.HOUGH_GRADIENT,
+                                    1.0,
+                                    960,// (double)gray.rows()/16, // change this value to detect circles with different distances to each other
+                                    150.0,
+                                    25.0,
+                                    240,
+                                    480); // change the last two parameters
+                            // (min_radius & max_radius) to detect larger circles
+                            for (int x = 0; x < circles.cols(); x++) {
+                                double[] c = circles.get(0, x);
+                                Point center = new Point(Math.round(c[0]), Math.round(c[1]));
+                                // circle center
+                                Imgproc.drawMarker(src, center, new Scalar(0,100,100), Imgproc.MARKER_CROSS, 960, 1 );
+                                // circle outline
+                                int radius = (int) Math.round(c[2]);
+                                Imgproc.circle(src, center, radius, new Scalar(255,0,255), 2, Imgproc.LINE_8, 0);
+
+                                DetectionUtil.debugShowImage(src, "houghcircle");
+                                LOGGER.info(String.format("radius %s; press enter to continue....", radius));
+                                scanner.nextLine();
+
+                                // generate polar coordinate system using the found ellipse
+                                final var polarCoordSysImage = src.clone();
+                                /*
+                            // draw bounding box of ellipse
+                            Imgproc.rectangle(
+                                polarCoordSysImage,
+                                rotatedRect.boundingRect(),
+                                new Scalar(240, 1, 255),
+                                1
+                            );
+                            // outer ellipse
+                            Imgproc.ellipse(
+                                polarCoordSysImage,
+                                rotatedRect,
+                                new Scalar(40,240,255),
+                                1
+                            );
+                            // center
+                            Imgproc.drawMarker(
+                                polarCoordSysImage,
+                                rotatedRect.center,
+                                new Scalar(50,50,50),
+                                Imgproc.MARKER_CROSS,
+                                960
+                            );
+                             */
+
+                                // TODO just a test here
+                                final var limits = DetectionUtil.determineDartboardSectorLimits2(
+                                        polarCoordSysImage,
+                                        center,
+                                        radius,
+                                        true);
+                                LOGGER.info("Limits: " + limits);
+                                // debug
+                                // LOGGER.info("continue?");
+                                // scanner.nextLine();
+
+                                // draw polar coordiantes from singleton
+                                final var polarCoordValueAngleRange = PolarCoordinateValueAngleRange.getInstance();
+                                final var pointLeftFieldBoundary = new Point();
+                                final var pointRightFieldBoundary = new Point();
+                                for (var entry : polarCoordValueAngleRange.getValueAngleRangeMap().entrySet()) {
+                                    final double startAngle = entry.getKey().getMinValue();
+                                    final double endAngle = entry.getKey().getMaxValue();
+                                    pointLeftFieldBoundary.x = (int) Math.round(
+                                            center.x + ((radius*2) / 1.75) * Math.cos(startAngle * Math.PI / -180.0));
+                                    pointLeftFieldBoundary.y = (int) Math.round(
+                                            center.y + ((radius*2) / 1.75) * Math.sin(startAngle * Math.PI / -180.0));
+
+                                    pointRightFieldBoundary.x = (int) Math.round(
+                                            center.x + ((radius*2) / 1.75) * Math.cos(endAngle * Math.PI / -180.0));
+                                    pointRightFieldBoundary.y = (int) Math.round(
+                                            center.y + ((radius*2) / 1.75) * Math.sin(endAngle * Math.PI / -180.0));
+
+                                    LOGGER.info(String.format(
+                                            "drawLine for angles [%s][%s] to (%s,%s)", startAngle, endAngle, pointLeftFieldBoundary, pointRightFieldBoundary));
+                                    Imgproc.line(
+                                            polarCoordSysImage,
+                                            center,
+                                            pointLeftFieldBoundary,
+                                            new Scalar(200, 50, 200),
+                                            1
+                                    );
+                                    Imgproc.line(
+                                            polarCoordSysImage,
+                                            center,
+                                            pointRightFieldBoundary,
+                                            new Scalar(200, 50, 200),
+                                            1
+                                    );
+                                    Imgproc.putText(
+                                            polarCoordSysImage,
+                                            String.valueOf(entry.getValue()),
+                                            pointRightFieldBoundary,
+                                            Imgproc.FONT_HERSHEY_DUPLEX,
+                                            0.3,
+                                            new Scalar(200, 50, 200)
+                                    );
+
+                                    // TODO just a test here
+                                    DetectionUtil.determineRadiusAndAngleFromPointRelativeToCenter(
+                                            center,
+                                            pointRightFieldBoundary);
+                                }
+                                // debug
+                                DetectionUtil.debugShowImage(polarCoordSysImage, "polar_sys");
+
+                            }
+                            LOGGER.info("continue warping?");
+                            scanner.nextLine();

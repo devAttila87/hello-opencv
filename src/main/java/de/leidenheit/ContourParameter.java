@@ -23,7 +23,7 @@ public record ContourParameter(
      *  - area threshold = 100
      *  - epsilon = 0.01
      *  - contour colour = neon yellow
-     *  - contour thickness = 3 
+     *  - contour thickness = 2
      * 
      * @return Returns an instance of {@link ContourParameter} with default parameters
      */
@@ -37,6 +37,6 @@ public record ContourParameter(
             100, 
             0.01, 
             new Scalar(31, 240, 255), 
-            3);
+            2);
     }
 }

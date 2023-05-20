@@ -189,6 +189,9 @@ public final class CameraCalibrator {
             Imgproc.resize(rgbaFrame, resizedOrignal, previewSize);
             Imgproc.resize(grayFrame, resizedGray, previewSize);
 
+			// debug
+			DetectionUtil.debugShowImage(resizedOrignal, "corners_" + imageFilePath);
+
             biConsumerOriginalAndProcessedFrame.accept(
                 resizedOrignal,
                 resizedGray);

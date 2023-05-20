@@ -35,6 +35,7 @@ hs_err_pid*
 
 # build
 target
+.idea
 
 # large resources
 src/resources/chessboard/same_size/*

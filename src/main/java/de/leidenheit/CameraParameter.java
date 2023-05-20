@@ -20,7 +20,7 @@ public record CameraParameter(
     public static CameraParameter defaultParameter() {
         return new CameraParameter(
             1920, 
-            1446, 
+            1440,
             9, 
             6, 
             40d, 
